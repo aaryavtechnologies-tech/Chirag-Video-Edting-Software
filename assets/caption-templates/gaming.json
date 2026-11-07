@@ -1,0 +1,132 @@
+[
+  {
+    "id": "gaming-1",
+    "name": "Arcade",
+    "category": "Gaming",
+    "style": {
+      "fontFamily": "Rajdhani",
+      "fontSize": 50,
+      "bold": true,
+      "fill": {
+        "color": "#99faea"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 2
+      }
+    },
+    "wordEffect": {
+      "type": "oneWordAtATime",
+      "activeColor": "#ffd447",
+      "pillColor": "#473991",
+      "scale": 1.2
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "gaming-2",
+    "name": "Neon Mint",
+    "category": "Gaming",
+    "style": {
+      "fontFamily": "Rajdhani",
+      "fontSize": 55,
+      "bold": true,
+      "fill": {
+        "color": "#ffd3ec"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 6
+      }
+    },
+    "animation": {
+      "in": {
+        "preset": "fade",
+        "duration": 0.22
+      },
+      "out": {
+        "preset": "fade",
+        "duration": 0.2
+      }
+    },
+    "wordEffect": {
+      "type": "scalePop",
+      "activeColor": "#ffd447",
+      "pillColor": "#473991",
+      "scale": 1.2
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "gaming-3",
+    "name": "Energy",
+    "category": "Gaming",
+    "style": {
+      "fontFamily": "Rajdhani",
+      "fontSize": 60,
+      "bold": true,
+      "fill": {
+        "color": "#bdff79"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      }
+    },
+    "wordEffect": {
+      "type": "underlineSweep",
+      "activeColor": "#ffd447",
+      "pillColor": "#473991",
+      "scale": 1.2
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  }
+]

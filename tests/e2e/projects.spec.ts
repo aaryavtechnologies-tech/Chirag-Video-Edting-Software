@@ -141,6 +141,26 @@ test('selects portrait from the ratio card and persists a layout override', asyn
   }
 });
 
+test('creates a caption track and edits a segment override', async ({}, testInfo) => {
+  const { app, projects } = await launch(testInfo.outputPath('workspace'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.captions, exact: true }).click();
+    await page.getByRole('button', { name: s.addCaption, exact: true }).click();
+    await expect(page.locator('.caption-clip')).toHaveCount(1);
+    await page.getByLabel(s.wordEffect).selectOption('karaokeFill');
+    await page.getByRole('button', { name: s.save, exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText(s.saved);
+    const file = join(projects, s.defaultName, s.defaultName + '.vedit');
+    expect(JSON.parse(await readFile(file, 'utf8')).captionTracks[0].segments[0].overrides.wordEffect.type)
+      .toBe('karaokeFill');
+  } finally {
+    await app.close();
+  }
+});
+
 test('recovers an autosaved edit after an interrupted session', async ({}, testInfo) => {
   const root = testInfo.outputPath('workspace');
   const { app, projects } = await launch(root);

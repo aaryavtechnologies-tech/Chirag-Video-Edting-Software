@@ -11,8 +11,10 @@ const family = (kind: Clip['type']): Track['kind'] => kind === 'audio' ? 'audio'
 const sameKind = (project: Project, kind: Track['kind']) => project.tracks.filter((track) => track.kind === kind);
 
 export function projectDuration(project: Project) {
-  return project.tracks.reduce((length, track) =>
+  const ordinary = project.tracks.reduce((length, track) =>
     track.clips.reduce((max, clip) => Math.max(max, end(clip)), length), 0);
+  return (project.captionTracks ?? []).reduce((length, track) =>
+    track.segments.reduce((max, clip) => Math.max(max, clip.start + clip.duration), length), ordinary);
 }
 
 export function findClip(project: Project, id: string) {

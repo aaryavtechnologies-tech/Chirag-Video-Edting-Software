@@ -1,0 +1,132 @@
+[
+  {
+    "id": "karaoke-1",
+    "name": "Karaoke Gold",
+    "category": "Karaoke",
+    "style": {
+      "fontFamily": "Poppins",
+      "fontSize": 50,
+      "bold": false,
+      "fill": {
+        "color": "#d8f4ff"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 2
+      }
+    },
+    "wordEffect": {
+      "type": "pillSlide",
+      "activeColor": "#ffd447",
+      "pillColor": "#473991",
+      "scale": 1.2
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "karaoke-2",
+    "name": "Underline Sweep",
+    "category": "Karaoke",
+    "style": {
+      "fontFamily": "Poppins",
+      "fontSize": 55,
+      "bold": false,
+      "fill": {
+        "color": "#ffeccd"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 6
+      }
+    },
+    "animation": {
+      "in": {
+        "preset": "fade",
+        "duration": 0.22
+      },
+      "out": {
+        "preset": "fade",
+        "duration": 0.2
+      }
+    },
+    "wordEffect": {
+      "type": "wordByWord",
+      "activeColor": "#ffd447",
+      "pillColor": "#473991",
+      "scale": 1.2
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "karaoke-3",
+    "name": "Sing Along",
+    "category": "Karaoke",
+    "style": {
+      "fontFamily": "Poppins",
+      "fontSize": 60,
+      "bold": false,
+      "fill": {
+        "color": "#ffffff"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      }
+    },
+    "wordEffect": {
+      "type": "highlightColor",
+      "activeColor": "#ffd447",
+      "pillColor": "#473991",
+      "scale": 1.2
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  }
+]

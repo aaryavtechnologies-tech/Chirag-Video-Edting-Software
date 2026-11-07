@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { CaptionTimelineRow } from '../captions/CaptionTimelineRow';
 import { strings as s } from '../lib/strings';
 import { alignFrame, timecode } from '../lib/time';
 import type { Asset, Clip, Project, Track } from '../types/project';
@@ -33,9 +34,11 @@ interface Props {
   onSelect(clipId?: string, trackId?: string): void;
   focusedClip?: string;
   onZoom?(percent: number): void;
+  selectedCaptions?: ReadonlySet<string>;
+  onCaptionSelect?(id?: string, trackId?: string, extend?: boolean): void;
 }
 
-export function Timeline({ project, edit, playhead, seek, busy, onSelect, focusedClip, onZoom }: Props) {
+export function Timeline({ project, edit, playhead, seek, busy, onSelect, focusedClip, onZoom, selectedCaptions, onCaptionSelect }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(80);
   useEffect(() => { onZoom?.(Math.round(zoom / 80 * 100)); }, [zoom, onZoom]);
@@ -51,6 +54,10 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   const length = projectDuration(project);
   const tracks = [...project.tracks.filter((track) => track.kind === 'video').reverse(),
     ...project.tracks.filter((track) => track.kind === 'audio')];
+  const captionRows = onCaptionSelect && selectedCaptions && project.captionTracks?.map((track) =>
+    <CaptionTimelineRow key={track.id} track={track} zoom={zoom} fps={fps} edit={edit}
+      selected={selectedCaptions} select={onCaptionSelect} playhead={playhead} />);
+  const firstAudio = tracks.findIndex((track) => track.kind === 'audio');
   const width = Math.max(viewport.width - labelsWidth, (length + 8) * zoom);
   const pxToTime = (x: number) => Math.max(0, x / zoom);
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
@@ -303,7 +310,9 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
               title={marker.label ?? s.marker} style={{ left: marker.time * zoom }} />)}
           </div>
         </div>
-        {tracks.map((track) => <div key={track.id} className="timeline-row" data-track-id={track.id}>
+        {tracks.map((track, index) => <Fragment key={track.id}>
+        {index === firstAudio && captionRows}
+        <div className="timeline-row" data-track-id={track.id}>
           <div className="track-label">
             <span draggable={!busy} onDragStart={(event) => event.dataTransfer.setData(trackDragType, track.id)}
               onClick={() => { setSelected(new Set()); onSelect(undefined, track.id); }}
@@ -344,7 +353,8 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
                 }}
                 start={(event, kind) => startClip(event, clip, track, kind)} />)}
           </div>
-        </div>)}
+        </div></Fragment>)}
+        {firstAudio < 0 && captionRows}
         <div className="timeline-row">
           <div className="track-label" />
           <div className="track-lane add-lane muted"

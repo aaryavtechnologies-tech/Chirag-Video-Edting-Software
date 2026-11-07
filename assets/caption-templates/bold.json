@@ -1,0 +1,114 @@
+[
+  {
+    "id": "bold-1",
+    "name": "Outline Pop",
+    "category": "Bold",
+    "style": {
+      "fontFamily": "Oswald",
+      "fontSize": 50,
+      "bold": true,
+      "fill": {
+        "color": "#ffeccd"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 2
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "bold-2",
+    "name": "Bright Yellow",
+    "category": "Bold",
+    "style": {
+      "fontFamily": "Oswald",
+      "fontSize": 55,
+      "bold": true,
+      "fill": {
+        "color": "#ffffff"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 6
+      }
+    },
+    "animation": {
+      "in": {
+        "preset": "fade",
+        "duration": 0.22
+      },
+      "out": {
+        "preset": "fade",
+        "duration": 0.2
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "bold-3",
+    "name": "Impact Box",
+    "category": "Bold",
+    "style": {
+      "fontFamily": "Oswald",
+      "fontSize": 60,
+      "bold": true,
+      "fill": {
+        "color": "#ffe153"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  }
+]

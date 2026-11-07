@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { entrances, exits } from './textMotion';
 import { animationSetSchema } from '../animation/schema';
+import { captionSchemas, captionWordSchema, wordEffectSchema } from '../captions/schema';
 
 // Draft-07 permits additional properties wherever the schema does not forbid them.
 const object = <T extends z.ZodRawShape>(shape: T) => z.object(shape).passthrough();
@@ -55,6 +56,7 @@ export const textStyleSchema = object({
   animationOut: z.enum(exits).optional(),
   animationDuration: num,
 });
+export const { template: captionTemplateSchema, segment: captionSegmentSchema, track: captionTrackSchema } = captionSchemas(textStyleSchema);
 
 export const clipSchema = object({
   id: z.string(), type: z.enum(['video', 'image', 'text', 'audio']), assetId: str,
@@ -63,6 +65,7 @@ export const clipSchema = object({
   volume: z.number().min(0).max(2).optional(), muted: bool, fadeIn: num, fadeOut: num,
   transform: transformSchema.optional(), fit: z.enum(['contain', 'cover']).optional(),
   text: str, style: textStyleSchema.optional(), animation: animationSetSchema.optional(), linkedClipId: path,
+  caption: object({ words: z.array(captionWordSchema), wordEffect: wordEffectSchema.optional() }).optional(),
 });
 
 export const trackSchema = object({
@@ -76,4 +79,6 @@ export const projectSchema = object({
   settings: projectSettingsSchema, assets: z.array(assetSchema), tracks: z.array(trackSchema),
   markers: z.array(object({ time: z.number().finite(), label: str })).optional(),
   textPresets: z.array(textStyleSchema).optional(),
+  captionTracks: z.array(captionTrackSchema).optional(),
+  captionTemplates: z.array(captionTemplateSchema).optional(),
 });

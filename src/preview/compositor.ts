@@ -1,4 +1,5 @@
 import type { Asset, Clip, Project } from '../types/project';
+import { captionLayers } from '../captions/model';
 
 export interface Transform {
   x: number; y: number; scale: number; rotation: number; opacity: number;
@@ -13,8 +14,8 @@ export function clipTransform(clip: Clip): Transform {
 export function activeLayers(project: Project, time: number) {
   const tracks = project.tracks.filter((track) => track.kind === 'video' && !track.hidden)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  return tracks.flatMap((track) => track.clips.filter((clip) =>
-    time >= clip.start && time < clip.start + clip.duration));
+  return [...tracks.flatMap((track) => track.clips.filter((clip) =>
+    time >= clip.start && time < clip.start + clip.duration)), ...captionLayers(project, time)];
 }
 
 export function fittedSize(width: number, height: number, sourceWidth: number, sourceHeight: number, cover: boolean) {

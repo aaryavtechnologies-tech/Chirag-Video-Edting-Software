@@ -25,6 +25,9 @@ import { LandscapeLayout } from '../layouts/LandscapeLayout';
 import { PortraitLayout } from '../layouts/PortraitLayout';
 import { resolveLayout, type LayoutPreferences } from '../layouts/settings';
 import { reframeProject } from '../layouts/reframe';
+import { CaptionsPanel } from '../captions/CaptionsPanel';
+import { CaptionInspector } from '../captions/CaptionInspector';
+import { captionTrack, findCaption } from '../captions/model';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } |
@@ -45,6 +48,7 @@ export function App() {
   const [volume, setVolume] = useState(1);
   const [peak, setPeak] = useState(0);
   const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
+  const [selectedCaptions, setSelectedCaptions] = useState<ReadonlySet<string>>(new Set());
   const [tab, setTab] = useState<Dock>('media');
   const [palette, setPalette] = useState(false);
   const [timelineZoom, setTimelineZoom] = useState(100);
@@ -59,9 +63,21 @@ export function App() {
   const Layout = resolvedLayout === 'portrait' ? PortraitLayout : LandscapeLayout;
   const showGuides = safeGuides ?? resolvedLayout === 'portrait';
   const select = useCallback((clipId?: string, trackId?: string) => {
+    setSelectedCaptions(new Set());
     setSelection({ clipId, trackId });
     if (clipId || trackId) setInspectorOpen(true);
   }, []);
+  function selectCaption(clipId?: string, trackId?: string, extend = false) {
+    setSelection({ clipId, trackId });
+    setSelectedCaptions((previous) => {
+      if (!clipId) return new Set();
+      const next = new Set(extend ? previous : []);
+      if (extend && next.has(clipId)) next.delete(clipId);
+      else next.add(clipId);
+      return next;
+    });
+    setInspectorOpen(true);
+  }
 
   function saveLayout(value: LayoutPreferences) {
     if (!home) return;
@@ -71,6 +87,8 @@ export function App() {
   }
   const { playing, playhead } = playback;
   const inspected = project && selection.clipId ? findClip(project, selection.clipId)?.clip : undefined;
+  const inspectedCaption = project && selection.clipId ? findCaption(project, selection.clipId) : undefined;
+  const inspectedCaptionTrack = inspectedCaption?.track ?? (project && captionTrack(project, selection.trackId));
 
   function edit(recipe: (draft: Project) => void) {
     const before = useProject.getState().current;
@@ -272,12 +290,20 @@ export function App() {
           {tab === 'media' || tab === 'audio' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy}
             audioOnly={tab === 'audio'} importFiles={importFiles} /> :
             tab === 'text' || tab === 'templates' ? <TextPanel add={addText} busy={busy} /> :
+            tab === 'captions' ? <CaptionsPanel project={current.project} edit={edit} trackId={selection.trackId}
+              selected={selectedCaptions} playhead={playhead} select={selectCaption} seek={playback.seek} /> :
             <section className="dock-empty"><h2>{s[tab]}</h2><p className="muted">{s.dockPending}</p></section>}
         </EditorDock>}
         preview={<PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
-          volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select}
+          volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={(clipId, trackId) => {
+            const caption = clipId && findCaption(current.project, clipId);
+            if (caption) selectCaption(clipId, caption.track.id);
+            else select(clipId, trackId);
+          }}
           snapshot={snapshot} onQuality={setPreviewQuality} safeGuides={showGuides} />}
-        inspector={!selection.clipId && !selection.trackId ? <aside className="inspector">
+        inspector={inspectedCaptionTrack ? <CaptionInspector key={inspectedCaption?.segment.id ?? inspectedCaptionTrack.id}
+          project={current.project} edit={edit} track={inspectedCaptionTrack} segment={inspectedCaption?.segment} /> :
+          !selection.clipId && !selection.trackId ? <aside className="inspector">
           <h2 className="font-semibold">{s.projectSettings}</h2>
           <p className="muted my-3">{current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}</p>
           <p className="muted">{s.tracks} {current.project.tracks.length} · {s.media} {current.project.assets.length}</p>
@@ -289,7 +315,8 @@ export function App() {
       </LayoutProvider>
       <Timeline key={current.project.id} project={current.project} edit={edit}
         playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal || palette}
-        onSelect={select} focusedClip={selection.clipId} onZoom={setTimelineZoom} />
+        onSelect={select} focusedClip={inspectedCaption ? undefined : selection.clipId} onZoom={setTimelineZoom}
+        selectedCaptions={selectedCaptions} onCaptionSelect={selectCaption} />
       <footer className="editor-status" aria-label={s.editorStatus}>
         <span>{timecode(playhead, current.project.settings.fps)}</span>
         <span>{s.frame} {timeToFrame(playhead, current.project.settings.fps)}</span>

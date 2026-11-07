@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CaptionsAndAnimations",
+  "definitions": {
+    "easing": {
+      "oneOf": [
+        { "enum": ["linear","easeInQuad","easeOutQuad","easeInOutQuad","easeInCubic","easeOutCubic","easeInOutCubic","easeInQuart","easeOutQuart","easeInOutQuart","easeInExpo","easeOutExpo","easeInOutExpo","easeOutBack","easeOutElastic","easeOutBounce"] },
+        { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4, "description": "cubic-bezier x1,y1,x2,y2" }
+      ]
+    },
+    "animationSlot": {
+      "type": "object",
+      "required": ["preset"],
+      "properties": {
+        "preset": { "type": "string", "description": "id such as fade, slideUp, typewriter, glitch, pulse, none" },
+        "duration": { "type": "number", "minimum": 0.1, "maximum": 3, "default": 0.5 },
+        "delay": { "type": "number", "default": 0 },
+        "easing": { "$ref": "#/definitions/easing" },
+        "granularity": { "enum": ["whole", "line", "word", "char"], "default": "whole" },
+        "stagger": { "type": "number", "minimum": 0, "maximum": 0.3, "default": 0.04 },
+        "staggerOrder": { "enum": ["forward", "backward", "center", "random"], "default": "forward" },
+        "seed": { "type": "integer", "default": 1 },
+        "direction": { "enum": ["up", "down", "left", "right"] },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 2, "default": 1 }
+      }
+    },
+    "animationSet": {
+      "type": "object",
+      "properties": {
+        "in": { "$ref": "#/definitions/animationSlot" },
+        "out": { "$ref": "#/definitions/animationSlot" },
+        "loop": { "$ref": "#/definitions/animationSlot" }
+      }
+    },
+    "wordEffect": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["none","highlightColor","scalePop","pillSlide","karaokeFill","underlineSweep","wordByWord","oneWordAtATime","bounceActive"], "default": "none" },
+        "activeColor": { "type": "string" },
+        "inactiveOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "pillColor": { "type": "string" },
+        "pillRadius": { "type": "number" },
+        "scale": { "type": "number", "default": 1.15 }
+      }
+    },
+    "placement": {
+      "type": "object",
+      "properties": {
+        "anchor": { "enum": ["top","middle","bottom","custom"], "default": "bottom" },
+        "x": { "type": "number", "default": 0.5 },
+        "y": { "type": "number", "default": 0.85 },
+        "maxWidth": { "type": "number", "minimum": 0.1, "maximum": 1, "default": 0.8 },
+        "fontScale": { "type": "number", "default": 1 }
+      }
+    },
+    "captionTemplate": {
+      "type": "object",
+      "required": ["id", "name", "style"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "enum": ["Basic","Viral","Karaoke","Cinematic","Minimal","Bold","Gaming","Podcast","News","Regional","Aesthetic","Custom"] },
+        "style": { "type": "object", "description": "textStyle from project.schema.json" },
+        "animation": { "$ref": "#/definitions/animationSet" },
+        "wordEffect": { "$ref": "#/definitions/wordEffect" },
+        "landscape": { "$ref": "#/definitions/placement" },
+        "portrait": { "$ref": "#/definitions/placement" },
+        "maxLines": { "type": "integer", "minimum": 1, "maximum": 4, "default": 2 },
+        "maxCharsPerLine": { "type": "integer", "minimum": 5, "default": 32 },
+        "uppercase": { "type": "boolean", "default": false },
+        "thumbnailText": { "type": "string" }
+      }
+    },
+    "captionSegment": {
+      "type": "object",
+      "required": ["id", "start", "duration", "text"],
+      "properties": {
+        "id": { "type": "string" },
+        "start": { "type": "number", "minimum": 0 },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "text": { "type": "string" },
+        "speaker": { "type": "string" },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text", "start", "end"],
+            "properties": { "text": { "type": "string" }, "start": { "type": "number" }, "end": { "type": "number" }, "estimated": { "type": "boolean" } }
+          }
+        },
+        "overrides": {
+          "type": "object",
+          "description": "Per-segment edits; any of style, animation, wordEffect, placement",
+          "properties": {
+            "style": { "type": "object" },
+            "animation": { "$ref": "#/definitions/animationSet" },
+            "wordEffect": { "$ref": "#/definitions/wordEffect" },
+            "placement": { "$ref": "#/definitions/placement" }
+          }
+        }
+      }
+    },
+    "captionTrack": {
+      "type": "object",
+      "required": ["id", "kind", "templateId", "segments"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "const": "caption" },
+        "name": { "type": "string" },
+        "language": { "type": "string" },
+        "templateId": { "type": "string" },
+        "templateSnapshot": { "$ref": "#/definitions/captionTemplate", "description": "copy stored in the project so it opens without the library" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "segments": { "type": "array", "items": { "$ref": "#/definitions/captionSegment" } }
+      }
+    },
+    "layoutSettings": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["auto", "landscape", "portrait"], "default": "auto" }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "captionTracks": { "type": "array", "items": { "$ref": "#/definitions/captionTrack" } },
+    "layout": { "$ref": "#/definitions/layoutSettings" }
+  }
+}

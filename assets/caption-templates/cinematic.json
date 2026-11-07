@@ -1,0 +1,114 @@
+[
+  {
+    "id": "cinematic-1",
+    "name": "Film White",
+    "category": "Cinematic",
+    "style": {
+      "fontFamily": "Playfair Display",
+      "fontSize": 50,
+      "bold": false,
+      "fill": {
+        "color": "#ffe153"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 2
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "cinematic-2",
+    "name": "Cinema Serif",
+    "category": "Cinematic",
+    "style": {
+      "fontFamily": "Playfair Display",
+      "fontSize": 55,
+      "bold": false,
+      "fill": {
+        "color": "#99faea"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 6
+      }
+    },
+    "animation": {
+      "in": {
+        "preset": "fade",
+        "duration": 0.22
+      },
+      "out": {
+        "preset": "fade",
+        "duration": 0.2
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "cinematic-3",
+    "name": "Theatrical",
+    "category": "Cinematic",
+    "style": {
+      "fontFamily": "Playfair Display",
+      "fontSize": 60,
+      "bold": false,
+      "fill": {
+        "color": "#ffd3ec"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  }
+]

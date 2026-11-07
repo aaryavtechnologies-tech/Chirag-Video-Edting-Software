@@ -1,0 +1,126 @@
+[
+  {
+    "id": "aesthetic-1",
+    "name": "Glass Pill",
+    "category": "Aesthetic",
+    "style": {
+      "fontFamily": "Pacifico",
+      "fontSize": 50,
+      "bold": false,
+      "fill": {
+        "color": "#d8f4ff"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 2
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 28
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "aesthetic-2",
+    "name": "Gradient Sunset",
+    "category": "Aesthetic",
+    "style": {
+      "fontFamily": "Pacifico",
+      "fontSize": 55,
+      "bold": false,
+      "fill": {
+        "color": "#ffeccd"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 28
+      }
+    },
+    "animation": {
+      "in": {
+        "preset": "fade",
+        "duration": 0.22
+      },
+      "out": {
+        "preset": "fade",
+        "duration": 0.2
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  },
+  {
+    "id": "aesthetic-3",
+    "name": "Lavender",
+    "category": "Aesthetic",
+    "style": {
+      "fontFamily": "Pacifico",
+      "fontSize": 60,
+      "bold": false,
+      "fill": {
+        "color": "#ffffff"
+      },
+      "stroke": {
+        "color": "#111827",
+        "width": 1
+      },
+      "background": {
+        "color": "#293758",
+        "opacity": 0.85,
+        "padding": 12,
+        "radius": 28
+      }
+    },
+    "landscape": {
+      "anchor": "bottom",
+      "y": 0.83,
+      "fontScale": 1,
+      "maxWidth": 0.85
+    },
+    "portrait": {
+      "anchor": "bottom",
+      "y": 0.73,
+      "fontScale": 1.1,
+      "maxWidth": 0.74
+    },
+    "maxLines": 2,
+    "maxCharsPerLine": 34,
+    "thumbnailText": "Speak with style"
+  }
+]

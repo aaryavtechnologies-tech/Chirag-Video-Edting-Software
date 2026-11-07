@@ -4,6 +4,7 @@
 - P2 treats square projects as portrait and uses a shared vertical-video safe area across platforms. Auto-reframe fits the old canvas inside the new one and maps positions into the fitted area.
 - P3 uses Chromium shaping with bundled Arabic, Devanagari, and Gujarati fallbacks. Curve rendering bends the shaped raster in strips, and per-word colour overlays retain the underlying glyph shaping.
 - P4 keeps legacy motion fields readable. Choosing an advanced preset creates clip-level slots. Frame-sequence export is scheduled for P7.
+- P5 stores captions separately from ordinary clips. The preview derives text layers from caption segments and their effective templates. Word timestamps are relative to each segment.
 
 - The text update extends the existing animation enums in the project schema. Existing projects keep their animation settings. The new enum values require Video Editor 0.2.0 or later.
 
