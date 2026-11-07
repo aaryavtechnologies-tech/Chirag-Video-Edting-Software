@@ -195,7 +195,7 @@ test('plays three video layers at Half quality in track order', async ({}, testI
   }
 });
 
-test('edits a title on the canvas and saves its gradient style', async ({}, testInfo) => {
+test('styles, previews and exports a title with zoom and shrink animation', async ({}, testInfo) => {
   const { app, projects } = await launch(testInfo.outputPath('workspace'));
   try {
     const page = await app.firstWindow();
@@ -203,12 +203,19 @@ test('edits a title on the canvas and saves its gradient style', async ({}, test
     await page.getByRole('button', { name: s.create }).click();
     await page.getByRole('button', { name: s.text, exact: true }).click();
     await page.getByRole('button', { name: s.title, exact: true }).click();
-    await page.getByRole('button', { name: s.styleNames.sunset, exact: true }).click();
+    await page.getByRole('button', { name: s.styleNames.retroWave, exact: true }).click();
     const preview = page.getByLabel(s.preview, { exact: true });
     await preview.dblclick();
     await page.getByLabel(s.inlineText).fill('Sunset');
     await page.getByLabel(s.inlineText).press('Control+Enter');
     await expect(page.locator('.clip-text')).toHaveText('Sunset');
+    await page.getByLabel(s.enter).selectOption('zoomIn');
+    await page.getByLabel(s.exit).selectOption('shrinkOut');
+    await page.getByLabel(s.rotation).fill('12');
+    await page.getByLabel(s.rotation).press('Enter');
+    await page.getByRole('button', { name: s.previewAnimation }).click();
+    await expect(page.getByRole('button', { name: s.pause, exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: s.play, exact: true })).toBeVisible({ timeout: 6000 });
     await page.getByRole('button', { name: s.save, exact: true }).click();
     await expect(page.getByRole('status')).toHaveText(s.saved);
     const file = join(projects, s.defaultName, s.defaultName + '.vedit');
@@ -216,8 +223,10 @@ test('edits a title on the canvas and saves its gradient style', async ({}, test
     expect(saved.tracks.flatMap((track: { clips: unknown[] }) => track.clips)).toEqual([
       expect.objectContaining({ text: 'Sunset', style: expect.objectContaining({
         fill: expect.objectContaining({ type: 'gradient' }),
+        animationIn: 'zoomIn', animationOut: 'shrinkOut',
       }) }),
     ]);
+    await page.locator('.ruler .track-lane').click({ position: { x: 80, y: 10 } });
     await preview.click({ position: { x: 12, y: 12 } });
     const output = join(projects, 'styled.mp4');
     await app.evaluate(({ dialog }, path) => {
@@ -227,29 +236,35 @@ test('edits a title on the canvas and saves its gradient style', async ({}, test
     await page.getByRole('button', { name: s.chooseOutput }).click();
     await expect(page.getByText(s.exportDone)).toBeVisible();
     if (!ffmpeg) throw new Error('FFmpeg not available');
-    const frame = join(projects, 'export-frame.png');
-    await promisify(execFile)(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-ss', '1', '-i', output,
-      '-frames:v', '1', '-update', '1', frame]);
-    const png = (await readFile(frame)).toString('base64');
-    const coverage = await preview.evaluate(async (canvas: HTMLCanvasElement, base64) => {
-      const image = new Image();
-      image.src = 'data:image/png;base64,' + base64;
-      await image.decode();
-      const rendered = document.createElement('canvas');
-      rendered.width = canvas.width;
-      rendered.height = canvas.height;
-      rendered.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
-      const ink = (surface: HTMLCanvasElement) => {
-        const pixels = surface.getContext('2d')!.getImageData(0, 0, surface.width, surface.height).data;
-        let count = 0;
-        for (let index = 0; index < pixels.length; index += 4) if (pixels[index] > 80) count += 1;
-        return count;
-      };
-      return { preview: ink(canvas), export: ink(rendered) };
-    }, png);
+    const binary = ffmpeg;
+    const frameCoverage = async (time: string) => {
+      const frame = join(projects, `export-frame-${time}.png`);
+      await promisify(execFile)(binary, ['-hide_banner', '-loglevel', 'error', '-ss', time, '-i', output,
+        '-frames:v', '1', '-update', '1', frame]);
+      const png = (await readFile(frame)).toString('base64');
+      return preview.evaluate(async (canvas: HTMLCanvasElement, base64) => {
+        const image = new Image();
+        image.src = 'data:image/png;base64,' + base64;
+        await image.decode();
+        const rendered = document.createElement('canvas');
+        rendered.width = canvas.width;
+        rendered.height = canvas.height;
+        rendered.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const ink = (surface: HTMLCanvasElement) => {
+          const pixels = surface.getContext('2d')!.getImageData(0, 0, surface.width, surface.height).data;
+          let count = 0;
+          for (let index = 0; index < pixels.length; index += 4) if (pixels[index] > 80) count += 1;
+          return count;
+        };
+        return { preview: ink(canvas), export: ink(rendered) };
+      }, png);
+    };
+    const coverage = await frameCoverage('1');
     expect(coverage.preview).toBeGreaterThan(100);
     expect(coverage.export / coverage.preview).toBeGreaterThan(0.8);
     expect(coverage.export / coverage.preview).toBeLessThan(1.2);
+    expect((await frameCoverage('0.1')).export).toBeLessThan(coverage.export / 2);
+    expect((await frameCoverage('2.9')).export).toBeLessThan(coverage.export / 2);
   } finally {
     await app.close();
   }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Added 12 text style presets with swatches and expanded entrance and exit animations.
+- Added a button to preview the selected clip's animation in the editor. Preview and export share the motion settings.
+
 ## M9
 
 - Added autosave, crash recovery, missing-media relinking, project settings, Save As, and resizable editor panels.

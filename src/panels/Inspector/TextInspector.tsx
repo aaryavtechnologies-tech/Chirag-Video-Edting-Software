@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { strings as s } from '../../lib/strings';
 import { builtInStyles, bundledFonts } from '../../lib/textPresets';
+import { entrances, exits } from '../../lib/textMotion';
 import { clipTransform, type Transform } from '../../preview/compositor';
 import { findClip } from '../../timeline/operations';
 import type { Clip, Project, TextStyle } from '../../types/project';
@@ -13,7 +14,9 @@ const defaults = {
   background: { color: '#000000', opacity: 0.8, padding: 12, radius: 8 },
 };
 
-export function TextInspector({ clip, project, edit }: { clip: Clip; project: Project; edit: Edit }) {
+export function TextInspector({ clip, project, edit, previewAnimation }: {
+  clip: Clip; project: Project; edit: Edit; previewAnimation(): void;
+}) {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [fontError, setFontError] = useState(false);
   const style = clip.style ?? {};
@@ -48,6 +51,43 @@ export function TextInspector({ clip, project, edit }: { clip: Clip; project: Pr
 
   return <aside className="inspector">
     <h2 className="font-semibold">{s.styles}</h2>
+    <fieldset disabled={locked}>
+      <legend>{s.animation}</legend>
+      <Choice label={s.enter} value={style.animationIn ?? 'none'} values={entrances}
+        change={(animationIn) => set({ animationIn })} />
+      <Choice label={s.exit} value={style.animationOut ?? 'none'} values={exits}
+        change={(animationOut) => set({ animationOut })} />
+      <label>{s.animationDuration}<input type="range" min={0.05} max={5} step={0.05}
+        value={style.animationDuration ?? 0.4} onChange={(event) => set({ animationDuration: event.target.valueAsNumber })} />
+        <span className="muted">{style.animationDuration ?? 0.4}{s.seconds}</span>
+      </label>
+      <button onClick={previewAnimation} disabled={(!style.animationIn || style.animationIn === 'none') &&
+        (!style.animationOut || style.animationOut === 'none')}>{s.previewAnimation}</button>
+    </fieldset>
+    <fieldset disabled={locked}>
+      <legend>{s.presets}</legend>
+      <div className="style-presets">{Object.entries(builtInStyles).map(([key, value]) => {
+        const gradient = value.fill?.gradient;
+        return <button key={key} aria-label={s.styleNames[key]} onClick={() => apply({
+          animationIn: style.animationIn, animationOut: style.animationOut, animationDuration: style.animationDuration,
+          ...value,
+        })}>
+          <span aria-hidden="true" className="preset-swatch" style={{
+            backgroundColor: value.background?.color,
+            color: gradient ? 'transparent' : value.fill?.color ?? '#ffffff',
+            fontFamily: value.fontFamily, fontWeight: value.bold ? 700 : 400,
+            fontStyle: value.italic ? 'italic' : 'normal',
+            backgroundImage: gradient ? `linear-gradient(${(gradient.angle ?? 0) + 90}deg, ${gradient.from}, ${gradient.to})` : undefined,
+            backgroundClip: gradient ? 'text' : undefined,
+            textShadow: value.glow?.color ? `0 0 6px ${value.glow.color}` : undefined,
+          }}>{s.styleSample}</span>
+          {s.styleNames[key]}
+        </button>;
+      })}</div>
+      <button onClick={() => edit((draft) => { (draft.textPresets ??= []).push({ ...style }); })}>{s.saveStyle}</button>
+      {project.textPresets?.map((preset, index) =>
+        <button key={index} onClick={() => apply(preset)}>{s.savedStyle} {index + 1}</button>)}
+    </fieldset>
     <fieldset disabled={locked}>
       <legend>{s.content}</legend>
       <label>{s.text}<textarea key={clip.text} defaultValue={clip.text} rows={3} maxLength={5000}
@@ -108,30 +148,11 @@ export function TextInspector({ clip, project, edit }: { clip: Clip; project: Pr
         <NumberField key={key} label={label} min={min} max={max} step={step} value={transform[key]}
           change={(value) => move(key, value)} />)}
     </fieldset>
-    <fieldset disabled={locked}>
-      <legend>{s.animation}</legend>
-      <Choice label={s.enter} value={style.animationIn ?? 'none'} values={['none', 'fade', 'slideUp', 'pop']}
-        change={(animationIn) => set({ animationIn })} />
-      <Choice label={s.exit} value={style.animationOut ?? 'none'} values={['none', 'fade', 'slideDown']}
-        change={(animationOut) => set({ animationOut })} />
-      <label>{s.animationDuration}<input type="range" min={0.05} max={5} step={0.05}
-        value={style.animationDuration ?? 0.4} onChange={(event) => set({ animationDuration: event.target.valueAsNumber })} />
-        <span className="muted">{style.animationDuration ?? 0.4}{s.seconds}</span>
-      </label>
-    </fieldset>
-    <fieldset disabled={locked}>
-      <legend>{s.presets}</legend>
-      <div className="style-presets">{Object.entries(builtInStyles).map(([key, value]) =>
-        <button key={key} onClick={() => apply(value)}>{s.styleNames[key]}</button>)}</div>
-      <button onClick={() => edit((draft) => { (draft.textPresets ??= []).push({ ...style }); })}>{s.saveStyle}</button>
-      {project.textPresets?.map((preset, index) =>
-        <button key={index} onClick={() => apply(preset)}>{s.savedStyle} {index + 1}</button>)}
-    </fieldset>
   </aside>;
 }
 
 function Choice<T extends keyof typeof s>({ label, value, values, change }: {
-  label: string; value: T; values: T[]; change(value: T): void;
+  label: string; value: T; values: readonly T[]; change(value: T): void;
 }) {
   return <label>{label}<select value={value} onChange={(event) => change(values[event.target.selectedIndex])}>
     {values.map((item) => <option value={item} key={item}>{String(s[item])}</option>)}

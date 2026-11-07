@@ -7,7 +7,8 @@ import { activeLayers, clipTransform, drawLayer, layerSize, type Transform } fro
 import { drawHandles, hitHandle, type Handle } from './handles';
 import { MediaElements } from './mediaElements';
 import type { usePlayback } from './usePlayback';
-import { animateText, loadTextFont, rasterizeText } from '../export/textRasterizer';
+import { loadTextFont, rasterizeText } from '../export/textRasterizer';
+import { animateText } from '../lib/textMotion';
 import type { Clip } from '../types/project';
 
 type Quality = 'full' | 'half' | 'quarter';

@@ -50,6 +50,9 @@ export const strings = {
   transform: 'Transform', positionX: 'Position X', positionY: 'Position Y', scale: 'Scale', rotation: 'Rotation',
   animation: 'Animation', enter: 'Animation in', exit: 'Animation out', none: 'None', fade: 'Fade',
   slideUp: 'Slide up', slideDown: 'Slide down', pop: 'Pop', animationDuration: 'Animation duration',
+  slideLeft: 'Slide left', slideRight: 'Slide right', zoomIn: 'Zoom in', shrinkOut: 'Shrink out',
+  previewAnimation: 'Preview animation',
+  styleSample: 'Aa',
   enabled: 'Enabled', presets: 'Presets', saveStyle: 'Save style', savedStyle: 'Saved style',
   inlineText: 'Edit text on canvas',
   export: 'Export', exportMode: 'Export mode', videoAndAudio: 'Video + audio', audioOnly: 'Audio only',
@@ -82,6 +85,9 @@ export const strings = {
   fit: 'Canvas fit', contain: 'Contain', cover: 'Fill',
   styleNames: { clean: 'Clean', headline: 'Headline', lower: 'Lower third', caption: 'Caption',
     classic: 'Classic', glow: 'Glow', sunset: 'Sunset', bubble: 'Bubble', terminal: 'Terminal',
-    signature: 'Signature', impact: 'Impact' } as Record<string, string>,
+    signature: 'Signature', impact: 'Impact', arctic: 'Arctic', goldFoil: 'Gold Foil', neonMint: 'Neon Mint',
+    filmCredits: 'Film Credits', comic: 'Comic', newsBanner: 'News Banner', lavender: 'Lavender',
+    forestBadge: 'Forest Badge', retroWave: 'Retro Wave', paperNote: 'Paper Note', blueprint: 'Blueprint',
+    ember: 'Ember' } as Record<string, string>,
 };
 

@@ -1,5 +1,4 @@
-import type { Clip, TextStyle } from '../types/project';
-import type { Transform } from '../preview/compositor';
+import type { TextStyle } from '../types/project';
 
 function bounded(value: number | undefined, fallback: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Number.isFinite(value) ? value! : fallback));
@@ -119,22 +118,4 @@ export function rasterizeText(text: string, style: TextStyle | undefined, scale:
     if (input.underline) ctx.fillRect(x, y + input.size * 0.08, measured, Math.max(1, input.size * 0.05));
   });
   return canvas;
-}
-
-export function animateText(clip: Clip, transform: Transform, time: number): Transform {
-  const seconds = bounded(clip.style?.animationDuration, 0.4, 0.01, 5);
-  const progress = (duration: number) => Math.max(0, Math.min(1, duration / seconds));
-  const enter = progress(time - clip.start);
-  const exit = progress(clip.start + clip.duration - time);
-  const next = { ...transform };
-  switch (clip.style?.animationIn) {
-    case 'fade': next.opacity *= enter; break;
-    case 'slideUp': next.y += 0.12 * (1 - enter); break;
-    case 'pop': next.scale *= 0.75 + 0.25 * enter; break;
-  }
-  switch (clip.style?.animationOut) {
-    case 'fade': next.opacity *= exit; break;
-    case 'slideDown': next.y += 0.12 * (1 - exit); break;
-  }
-  return next;
 }

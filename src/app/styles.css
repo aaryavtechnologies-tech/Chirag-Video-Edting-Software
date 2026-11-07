@@ -69,8 +69,9 @@ input[type="color"] { width: 100%; height: 2.75rem; }
 .editor-sidebar { background: var(--panel); overflow: auto; max-height: 64vh; }
 .editor-tabs { display: flex; gap: .4rem; padding: .65rem; }
 .editor-tabs button[aria-pressed="true"] { background: var(--accent); color: white; }
-.style-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+.style-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; max-height: 14rem; overflow: auto; padding: .2rem; }
 .style-presets button { padding: .25rem; font-size: .75rem; }
+.preset-swatch { display: block; margin: 0 auto .15rem; width: fit-content; padding: 0 .25rem; border-radius: 4px; font-size: 1.15rem; }
 .inspector textarea { min-width: 0; width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: .4rem; }
 .inline-text { position: absolute; transform: translate(-50%, -50%); max-width: 90%; padding: .5rem; border: 1px solid #a297ff; background: #161729df; color: white; border-radius: 8px; }
 .media-header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .8rem; }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { entrances, exits } from './textMotion';
 
 // Draft-07 permits additional properties wherever the schema does not forbid them.
 const object = <T extends z.ZodRawShape>(shape: T) => z.object(shape).passthrough();
@@ -37,8 +38,8 @@ export const textStyleSchema = object({
   shadow: object({ color: str, blur: num, offsetX: num, offsetY: num, opacity: num }).optional(),
   glow: object({ color: str, blur: num }).optional(),
   background: object({ color: str, opacity: num, padding: num, radius: num }).optional(),
-  animationIn: z.enum(['none', 'fade', 'slideUp', 'pop']).optional(),
-  animationOut: z.enum(['none', 'fade', 'slideDown']).optional(),
+  animationIn: z.enum(entrances).optional(),
+  animationOut: z.enum(exits).optional(),
   animationDuration: num,
 });
 

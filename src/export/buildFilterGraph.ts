@@ -1,6 +1,7 @@
 import type { Clip, Project } from '../types/project';
 import type { ExportSettings } from '../types/export';
 import { audioGain, audioLayers } from '../lib/audioMix';
+import { textMotion } from '../lib/textMotion';
 import { clipTransform, fittedSize, radians } from '../preview/compositor';
 import { projectDuration } from '../timeline/operations';
 
@@ -71,39 +72,46 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
         const transform = clipTransform(clip);
         const w = even(size.width * Math.max(0.01, transform.scale));
         const h = even(size.height * Math.max(0.01, transform.scale));
-        const animation = text ? clip.style : undefined;
-        const animationTime = Math.min(5, Math.max(0.01, animation?.animationDuration ?? 0.4));
+        const motion = text ? textMotion(clip) : undefined;
         const fade = clipFades(clip, false);
-        if (animation?.animationIn === 'fade') fade.push(`fade=t=in:st=0:d=${fixed(animationTime)}:alpha=1`);
-        if (animation?.animationOut === 'fade') fade.push(
-          `fade=t=out:st=${fixed(Math.max(0, clip.duration - animationTime))}:d=${fixed(animationTime)}:alpha=1`);
+        if (motion?.enter.fade) fade.push(`fade=t=in:st=0:d=${fixed(motion.duration)}:alpha=1`);
+        if (motion?.exit.fade) fade.push(
+          `fade=t=out:st=${fixed(clip.duration - motion.duration)}:d=${fixed(motion.duration)}:alpha=1`);
         const timing = sourceTime(clip);
         const filters = still ? [
-          'trim=end_frame=1', 'loop=loop=-1:size=1:start=0', `setpts=N/${fps}/TB`,
+          'trim=end_frame=1', 'loop=loop=-1:size=1:start=0', 'settb=AVTB', `setpts=N/${fps}/TB`, `fps=${fps}`,
         ] : [
           `trim=start=${fixed(timing.start)}:end=${fixed(timing.end)}`,
           `setpts=(PTS-STARTPTS)/${fixed(timing.speed)}`, `fps=${fps}`,
           `tpad=stop_mode=clone:stop_duration=${fixed(1 / fps)}`,
         ];
         filters.push(`trim=duration=${fixed(clip.duration)}`, 'format=rgba');
-        const pop = animation?.animationIn === 'pop';
-        const popScale = `(0.75+0.25*min(1,t/${fixed(animationTime)}))`;
-        filters.push(pop ? `scale=w='max(2,round(${w}*${popScale}/2)*2)':h='max(2,round(${h}*${popScale}/2)*2)':eval=frame` :
-          `scale=${w}:${h}:flags=bicubic`, 'setsar=1');
+        if (motion && (motion.enter.scale || motion.exit.scale)) {
+          const phase = (time: string) => `(1-clip((${time})/${fixed(motion.duration)},0,1))`;
+          const scale = `(1+${fixed(motion.enter.scale ?? 0)}*${phase('t')})*(1+${fixed(motion.exit.scale ?? 0)}*${phase(fixed(clip.duration) + '-t')})`;
+          filters.push(`scale=w='max(2,round(${w}*(${scale})/2)*2)':h='max(2,round(${h}*(${scale})/2)*2)':eval=frame`);
+          filters.push(`pad=${w}:${h}:x=(ow-iw)/2:y=(oh-ih)/2:color=black@0:eval=frame`);
+        } else filters.push(`scale=${w}:${h}:flags=bicubic`);
+        filters.push('setsar=1');
         if (transform.rotation) {
           const angle = fixed(radians(transform.rotation));
-          // Use a fixed rotation canvas even when a text animation changes its scale.
           filters.push(`rotate=${angle}:ow=ceil(rotw(${angle})/2)*2:oh=ceil(roth(${angle})/2)*2:c=none`);
         }
         if (transform.opacity !== 1) filters.push(`colorchannelmixer=aa=${fixed(transform.opacity)}`);
         filters.push('format=yuva420p', ...fade, `setpts=PTS+${fixed(clip.start)}/TB`);
         graph.push(`[${index}:V:0]${filters.join(',')}[layer${layers}]`);
-        const x = `${fixed((width - stage.width) / 2 + transform.x * stage.width)}-overlay_w/2`;
+        let x = `${fixed((width - stage.width) / 2 + transform.x * stage.width)}-overlay_w/2`;
         let y = `${fixed((height - stage.height) / 2 + transform.y * stage.height)}-overlay_h/2`;
-        if (animation?.animationIn === 'slideUp') y +=
-          `+${fixed(0.12 * stage.height)}*(1-clip((t-${fixed(clip.start)})/${fixed(animationTime)},0,1))`;
-        if (animation?.animationOut === 'slideDown') y +=
-          `+${fixed(0.12 * stage.height)}*(1-clip((${fixed(clip.start + clip.duration)}-t)/${fixed(animationTime)},0,1))`;
+        if (motion) {
+          const offset = (axis: 'x' | 'y', dimension: number) => {
+            const enter = motion.enter[axis];
+            const exit = motion.exit[axis];
+            return (enter ? `+(${fixed(enter * dimension)})*(1-clip((t-${fixed(clip.start)})/${fixed(motion.duration)},0,1))` : '') +
+              (exit ? `+(${fixed(exit * dimension)})*(1-clip((${fixed(clip.start + clip.duration)}-t)/${fixed(motion.duration)},0,1))` : '');
+          };
+          x += offset('x', stage.width);
+          y += offset('y', stage.height);
+        }
         const next = 'mixv' + layers;
         graph.push(`[${under}][layer${layers}]overlay=x='${x}':y='${y}':eof_action=pass:repeatlast=0:enable='gte(t,${fixed(clip.start)})*lt(t,${fixed(clip.start + clip.duration)})'[${next}]`);
         under = next;

@@ -241,7 +241,8 @@ export function App() {
           volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select}
           snapshot={snapshot} />
         <PanelResizer width={inspectorWidth} right resize={(width) => setInspectorWidth(clampPanel(width))} />
-        {inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit} /> :
+        {inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
+          previewAnimation={() => playback.previewRange(inspected.start, inspected.start + inspected.duration)} /> :
           <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
       </div>
       <Timeline key={current.project.id} project={current.project} edit={edit}

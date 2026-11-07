@@ -123,8 +123,8 @@
             "padding": { "type": "number" }, "radius": { "type": "number" }
           }
         },
-        "animationIn": { "enum": ["none", "fade", "slideUp", "pop"] },
-        "animationOut": { "enum": ["none", "fade", "slideDown"] },
+        "animationIn": { "enum": ["none", "fade", "slideUp", "slideDown", "slideLeft", "slideRight", "pop", "zoomIn"] },
+        "animationOut": { "enum": ["none", "fade", "slideDown", "slideUp", "slideLeft", "slideRight", "shrinkOut"] },
         "animationDuration": { "type": "number", "default": 0.4 }
       }
     },

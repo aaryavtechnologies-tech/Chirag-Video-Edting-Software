@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { animateText, prepareText } from '../../src/export/textRasterizer';
+import { prepareText } from '../../src/export/textRasterizer';
+import { animateText } from '../../src/lib/textMotion';
 import { defaultTransform } from '../../src/preview/compositor';
 
 it('normalizes multiline text, font, spacing and effect dimensions at the requested scale', () => {
@@ -20,4 +21,14 @@ it('maps text animation to preview transform and opacity over the clip bounds', 
   expect(animateText(clip, defaultTransform, 1).scale).toBe(0.75);
   expect(animateText(clip, defaultTransform, 1.5).scale).toBe(1);
   expect(animateText(clip, defaultTransform, 2.75).opacity).toBe(0.5);
+});
+
+it('slides from the left and shrinks toward the end of a short clip', () => {
+  const clip = { id: 'text', type: 'text' as const, start: 1, duration: 0.5,
+    style: { animationIn: 'slideRight' as const, animationOut: 'shrinkOut' as const, animationDuration: 3 } };
+  expect(animateText(clip, defaultTransform, 1).x).toBeCloseTo(0.34);
+  const middle = animateText(clip, defaultTransform, 1.25);
+  expect(middle.x).toBeCloseTo(0.42);
+  expect(middle.scale).toBeCloseTo(0.675);
+  expect(middle.opacity).toBeCloseTo(0.5);
 });
