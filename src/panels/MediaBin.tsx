@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { strings as s } from '../lib/strings';
 import type { MediaProgress } from '../types/desktop';
 import type { Asset } from '../types/project';
+import { assetDragType } from '../timeline/Timeline';
 
 const filters = ['all', 'video', 'image', 'audio'] as const;
 
@@ -34,7 +35,10 @@ export function MediaBin({ assets, proxies, busy, importFiles }: {
       {shown.map((asset) => {
         const name = asset.path.split(/[\\/]/).at(-1) ?? asset.path;
         const progress = proxies[asset.id];
-        return <li key={asset.id} title={name}>
+        return <li key={asset.id} title={name} draggable={!busy} onDragStart={(event) => {
+          event.dataTransfer.setData(assetDragType, asset.id);
+          event.dataTransfer.effectAllowed = 'copy';
+        }}>
           <div className="media-thumb">
             {asset.thumbPath ? <img alt="" src={`editor-media://thumbnail/${encodeURIComponent(asset.id)}`} /> :
               <span className="muted">{s[asset.type]}</span>}

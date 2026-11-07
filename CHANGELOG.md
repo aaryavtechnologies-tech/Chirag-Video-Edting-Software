@@ -1,5 +1,9 @@
 # Changelog
 
+## M3
+
+- Added multi-track editing with asset drops, track management, group movement, trim, split, ripple deletion, snapping, markers, and timeline navigation.
+
 ## M2
 
 - Added a filterable media bin, ffprobe import, thumbnails, background preview proxies, and undo/redo.

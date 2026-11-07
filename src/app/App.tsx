@@ -6,6 +6,7 @@ import { Home } from './Home';
 import { Modal } from './Modal';
 import { NewProjectForm, PreferencesForm } from './ProjectForms';
 import { MediaBin } from '../panels/MediaBin';
+import { Timeline } from '../timeline/Timeline';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' } | ProjectDialog;
@@ -17,6 +18,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [playhead, setPlayhead] = useState(0);
 
   async function run(operation: () => Promise<void>) {
     setBusy(true);
@@ -106,8 +108,10 @@ export function App() {
     {current ? <main className="editor">
       <header className="flex flex-wrap items-center gap-4">
         <button disabled={busy} onClick={() => void run(async () => {
+          await window.desktop.save(current.project);
           setHome(await window.desktop.home());
           setCurrent();
+          setPlayhead(0);
         })}>{s.home}</button>
         <h1 className="text-xl font-semibold">{current.project.name}</h1>
         <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
@@ -124,11 +128,8 @@ export function App() {
         <p className="muted">{current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}</p>
         </div>
       </div>
-      <section className="editor-tracks">
-        <h2>{s.tracks}</h2>
-        {[...current.project.tracks].reverse().map((track) => <div className="track" key={track.id}>{track.name}</div>)}
-        <p className="muted">{s.emptyEditor}</p>
-      </section>
+      <Timeline key={current.project.id} project={current.project} edit={edit}
+        playhead={playhead} seek={setPlayhead} busy={busy} />
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}

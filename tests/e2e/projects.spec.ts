@@ -36,7 +36,7 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
     if (!ffmpeg) throw new Error('FFmpeg not available');
     const source = join(root, 'large.mp4');
     await promisify(execFile)(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
-      'color=blue:s=2048x1152:r=24:d=0.25', '-c:v', 'libx264', '-threads', '2', '-y', source]);
+      'color=blue:s=2048x1152:r=24:d=1', '-c:v', 'libx264', '-threads', '2', '-y', source]);
     await app.evaluate(({ dialog }, path) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
     }, source);
@@ -52,9 +52,17 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
     await expect(page.getByText('large.mp4', { exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: s.redo, exact: true }).click();
     await expect(page.getByText(s.proxyReady)).toBeVisible();
+    await page.locator('.media-grid li').dragTo(page.locator('.timeline-row[data-track-id] .track-lane').first(), {
+      targetPosition: { x: 0, y: 20 },
+    });
+    await expect(page.locator('[data-clip-id]')).toHaveCount(1);
+    await page.locator('.ruler .track-lane').click({ position: { x: 40, y: 10 } });
+    await page.getByRole('button', { name: s.split, exact: true }).click();
+    await expect(page.locator('[data-clip-id]')).toHaveCount(2);
     await page.getByRole('button', { name: s.home, exact: true }).click();
     await page.getByRole('button', { name: new RegExp(s.defaultName) }).click();
     await expect(page.getByText(s.proxyReady)).toBeVisible();
+    await expect(page.locator('[data-clip-id]')).toHaveCount(2);
     const file = join(projects, s.defaultName, s.defaultName + '.vedit');
     expect(JSON.parse(await readFile(file, 'utf8')).assets[0]).toMatchObject({
       path: source, width: 2048, height: 1152, fps: 24,

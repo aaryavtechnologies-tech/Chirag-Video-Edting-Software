@@ -23,5 +23,10 @@ export const strings = {
   mediaEmpty: 'Drop files here or use Import media.', noMediaMatches: 'No media matches this filter.',
   proxyReady: 'Proxy ready', proxyFailed: 'Proxy unavailable', proxyProgress: 'Building proxy',
   importFailed: 'Could not import these files', seconds: 's', undo: 'Undo', redo: 'Redo',
+  timeline: 'Timeline', split: 'Split', rippleDelete: 'Ripple delete', snap: 'Snap', marker: 'Marker',
+  addVideo: 'Add video track', addAudio: 'Add audio track', zoom: 'Zoom', fitTimeline: 'Fit',
+  dropTrack: 'Drop media here to create a track', removeTrack: 'Remove track', lockTrack: 'Lock track',
+  editBlocked: 'The edit is blocked by track type, clip boundaries, overlap, or a locked track.',
+  text: 'Text',
 };
 

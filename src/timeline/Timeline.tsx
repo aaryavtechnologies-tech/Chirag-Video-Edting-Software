@@ -1,0 +1,332 @@
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { strings as s } from '../lib/strings';
+import { alignFrame, timecode } from '../lib/time';
+import type { Asset, Clip, Project, Track } from '../types/project';
+import {
+  addTrack, deleteClips, findClip, insertAsset, moveClips, projectDuration,
+  removeTrack, reorderTrack, splitClips, trimClip,
+} from './operations';
+import { snapTargets, snappedDelta } from './snapping';
+import './timeline.css';
+
+export const assetDragType = 'application/x-video-editor-asset';
+const trackDragType = 'application/x-video-editor-track';
+const labelsWidth = 152;
+const minZoom = 12;
+const maxZoom = 480;
+const id = () => crypto.randomUUID();
+
+type Point = { x: number; y: number };
+type Gesture =
+  | { kind: 'scrub' }
+  | { kind: 'box'; origin: Point; point: Point; extend: boolean }
+  | { kind: 'move' | 'left' | 'right'; origin: Point; point: Point; clip: Clip; trackId: string; ids: Set<string> };
+
+interface Props {
+  project: Project;
+  edit(recipe: (project: Project) => void): void;
+  playhead: number;
+  seek(time: number): void;
+  busy: boolean;
+}
+
+export function Timeline({ project, edit, playhead, seek, busy }: Props) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [zoom, setZoom] = useState(80);
+  const [snap, setSnap] = useState(true);
+  const [gesture, setGesture] = useState<Gesture>();
+  const [viewport, setViewport] = useState({ width: 800, left: 0 });
+  const [message, setMessage] = useState('');
+  const pane = useRef<HTMLDivElement>(null);
+  const surface = useRef<HTMLDivElement>(null);
+  const fps = project.settings.fps;
+  const length = projectDuration(project);
+  const tracks = [...project.tracks.filter((track) => track.kind === 'video').reverse(),
+    ...project.tracks.filter((track) => track.kind === 'audio')];
+  const width = Math.max(viewport.width - labelsWidth, (length + 8) * zoom);
+  const pxToTime = (x: number) => Math.max(0, x / zoom);
+  const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
+
+  useEffect(() => {
+    const element = pane.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => setViewport({ width: element.clientWidth, left: element.scrollLeft }));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const element = pane.current;
+    if (!element) return;
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const at = Math.max(0, event.clientX - element.getBoundingClientRect().left - labelsWidth);
+      changeZoom(zoom * Math.exp(-event.deltaY / 400), at);
+    };
+    element.addEventListener('wheel', wheel, { passive: false });
+    return () => element.removeEventListener('wheel', wheel);
+  });
+
+  useEffect(() => {
+    function shortcut(event: KeyboardEvent) {
+      if (busy || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
+      switch (event.key.toLowerCase()) {
+        case 's': split(); break;
+        case 'delete': case 'backspace': erase(event.shiftKey); break;
+        case 'n': setSnap((value) => !value); break;
+        case 'm': mark(); break;
+        case '=': case '+': changeZoom(zoom * 1.25); break;
+        case '-': changeZoom(zoom / 1.25); break;
+        case 'home': seek(0); break;
+        case 'end': seek(length); break;
+        case 'arrowleft': seek(Math.max(0, alignFrame(playhead - (event.shiftKey ? 1 : 1 / fps), fps))); break;
+        case 'arrowright': seek(Math.min(length, alignFrame(playhead + (event.shiftKey ? 1 : 1 / fps), fps))); break;
+        default: return;
+      }
+      event.preventDefault();
+    }
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  });
+
+  function changeZoom(value: number, anchor = Math.max(0, (viewport.width - labelsWidth) / 2)) {
+    const next = Math.max(minZoom, Math.min(maxZoom, value));
+    const time = (viewport.left + anchor) / zoom;
+    setZoom(next);
+    requestAnimationFrame(() => { if (pane.current) pane.current.scrollLeft = Math.max(0, time * next - anchor); });
+  }
+
+  function point(event: PointerEvent): Point {
+    const bounds = surface.current!.getBoundingClientRect();
+    return { x: event.clientX - bounds.left - labelsWidth, y: event.clientY - bounds.top };
+  }
+
+  function capture(event: PointerEvent) {
+    surface.current?.setPointerCapture(event.pointerId);
+    setMessage('');
+  }
+
+  function scrub(x: number) {
+    seek(alignFrame(pxToTime(x), fps));
+  }
+
+  function attempt(operation: (draft: Project) => boolean) {
+    let changed = false;
+    edit((draft) => { changed = operation(draft); });
+    setMessage(changed ? '' : s.editBlocked);
+  }
+
+  function split() { attempt((draft) => splitClips(draft, selected, playhead, id)); }
+  function erase(ripple: boolean) {
+    if (selected.size) edit((draft) => deleteClips(draft, selected, ripple));
+    setSelected(new Set());
+  }
+  function mark() {
+    edit((draft) => {
+      const markers = draft.markers ?? (draft.markers = []);
+      if (!markers.some((marker) => marker.time === playhead)) markers.push({ time: playhead });
+    });
+  }
+
+  function startClip(event: PointerEvent, clip: Clip, track: Track, kind: 'move' | 'left' | 'right') {
+    if (event.button !== 0 || busy) return;
+    event.stopPropagation();
+    const extend = event.shiftKey || event.ctrlKey || event.metaKey;
+    const ids = kind !== 'move' ? new Set([clip.id]) :
+      extend ? new Set(selected) : selected.has(clip.id) ? new Set(selected) : new Set([clip.id]);
+    if (extend && kind === 'move' && ids.has(clip.id)) {
+      ids.delete(clip.id);
+      setSelected(ids);
+      return;
+    }
+    ids.add(clip.id);
+    setSelected(ids);
+    if (track.locked) return;
+    capture(event);
+    const at = point(event);
+    setGesture({ kind, origin: at, point: at, clip, trackId: track.id, ids });
+  }
+
+  function gestureDelta(drag: Extract<Gesture, { clip: Clip }>, x: number) {
+    const raw = (x - drag.origin.x) / zoom;
+    const anchor = drag.kind === 'right' ? drag.clip.start + drag.clip.duration : drag.clip.start;
+    const edges = drag.kind === 'move' ? [...drag.ids].flatMap((clipId) => {
+      const clip = findClip(project, clipId)?.clip;
+      return clip ? [clip.start, clip.start + clip.duration] : [];
+    }) : [anchor];
+    const aligned = alignFrame(anchor + raw, fps) - anchor;
+    return snap ? snappedDelta(edges, aligned, snapTargets(project, playhead, drag.ids), 8 / zoom) : aligned;
+  }
+
+  function finish(event: PointerEvent<HTMLDivElement>) {
+    if (!gesture) return;
+    const at = point(event);
+    setGesture(undefined);
+    if (gesture.kind === 'scrub') { scrub(at.x); return; }
+    if (gesture.kind === 'box') {
+      const bounds = surface.current!.getBoundingClientRect();
+      const left = Math.min(gesture.origin.x, at.x) + bounds.left + labelsWidth;
+      const right = Math.max(gesture.origin.x, at.x) + bounds.left + labelsWidth;
+      const top = Math.min(gesture.origin.y, at.y) + bounds.top;
+      const bottom = Math.max(gesture.origin.y, at.y) + bounds.top;
+      const ids = gesture.extend ? new Set(selected) : new Set<string>();
+      if (right - left > 2 || bottom - top > 2) {
+        for (const item of surface.current!.querySelectorAll<HTMLElement>('[data-clip-id]')) {
+          const rect = item.getBoundingClientRect();
+          if (left <= rect.right && right >= rect.left && top <= rect.bottom && bottom >= rect.top) {
+            ids.add(item.dataset.clipId!);
+          }
+        }
+      }
+      setSelected(ids);
+      return;
+    }
+    if (Math.abs(at.x - gesture.origin.x) < 2 && Math.abs(at.y - gesture.origin.y) < 2) return;
+    const delta = gestureDelta(gesture, at.x);
+    if (gesture.kind === 'move') {
+      const track = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-track-id]');
+      if (track?.dataset.trackId) {
+        attempt((draft) => moveClips(draft, gesture.ids, gesture.clip.id, track.dataset.trackId!, delta));
+      }
+    } else {
+      const edge = gesture.kind;
+      const original = edge === 'left' ? gesture.clip.start : gesture.clip.start + gesture.clip.duration;
+      attempt((draft) => trimClip(draft, gesture.clip.id, edge, original + delta));
+    }
+  }
+
+  function dropAsset(event: React.DragEvent, trackId?: string) {
+    const asset = assets.get(event.dataTransfer.getData(assetDragType));
+    if (!asset || busy) return;
+    event.preventDefault();
+    const bounds = surface.current!.getBoundingClientRect();
+    const time = alignFrame(pxToTime(event.clientX - bounds.left - labelsWidth), fps);
+    const start = snap ? Math.max(0, snappedDelta([time], 0, snapTargets(project, playhead, new Set()), 8 / zoom)) : time;
+    const clipId = id();
+    attempt((draft) => {
+      const added = insertAsset(draft, asset, trackId, start, clipId, id());
+      if (added) setSelected(new Set([clipId]));
+      return added;
+    });
+  }
+
+  const visibleStart = Math.max(0, (viewport.left - 100) / zoom);
+  const visibleEnd = (viewport.left + viewport.width + 100) / zoom;
+  const step = [0.25, 0.5, 1, 2, 5, 10, 15, 30, 60].find((value) => value * zoom >= 60) ?? 60;
+  const firstTick = Math.floor(visibleStart / step);
+  const lastTick = Math.ceil(Math.min(visibleEnd, width / zoom) / step);
+  const ticks = Array.from({ length: lastTick - firstTick + 1 }, (_, index) => (firstTick + index) * step);
+  const dragDelta = gesture && 'clip' in gesture ? gestureDelta(gesture, gesture.point.x) : 0;
+
+  return <section className="timeline" aria-label={s.timeline}>
+    <div className="timeline-tools">
+      <button disabled={busy} onClick={split}>{s.split}</button>
+      <button disabled={busy || !selected.size} onClick={() => erase(false)}>{s.delete}</button>
+      <button disabled={busy || !selected.size} onClick={() => erase(true)}>{s.rippleDelete}</button>
+      <button aria-pressed={snap} onClick={() => setSnap(!snap)}>{s.snap}</button>
+      <button disabled={busy} onClick={mark}>{s.marker}</button>
+      <button disabled={busy} onClick={() => edit((draft) => { addTrack(draft, 'video', id()); })}>{s.addVideo}</button>
+      <button disabled={busy} onClick={() => edit((draft) => { addTrack(draft, 'audio', id()); })}>{s.addAudio}</button>
+      <label className="timeline-zoom">{s.zoom}<input type="range" min={minZoom} max={maxZoom} value={zoom}
+        onChange={(event) => changeZoom(event.target.valueAsNumber)} /></label>
+      <button onClick={() => {
+        setZoom(Math.max(minZoom, Math.min(maxZoom, (viewport.width - labelsWidth) / Math.max(1, length))));
+        if (pane.current) pane.current.scrollLeft = 0;
+      }}>{s.fitTimeline}</button>
+      <span className="timeline-time">{timecode(playhead, fps)}</span>
+      {message && <span className="muted" role="status">{message}</span>}
+    </div>
+    <div className="timeline-scroll" ref={pane}
+      onScroll={(event) => setViewport({ width: event.currentTarget.clientWidth, left: event.currentTarget.scrollLeft })}>
+      <div ref={surface} className="timeline-surface" style={{ width: width + labelsWidth }}
+        onPointerMove={(event) => {
+          if (!gesture) return;
+          const at = point(event);
+          if (gesture.kind === 'scrub') scrub(at.x);
+          else setGesture({ ...gesture, point: at });
+        }} onPointerUp={finish} onPointerCancel={() => setGesture(undefined)}>
+        <div className="timeline-row ruler">
+          <div className="track-label">{s.tracks}</div>
+          <div className="track-lane" onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            capture(event);
+            setGesture({ kind: 'scrub' });
+            scrub(point(event).x);
+          }}>
+            {ticks.map((time) => <span key={time} className="tick" style={{ left: time * zoom }}>
+              {timecode(time, fps).slice(3)}
+            </span>)}
+            {project.markers?.map((marker, index) => <span key={index} className="timeline-marker"
+              title={marker.label ?? s.marker} style={{ left: marker.time * zoom }} />)}
+          </div>
+        </div>
+        {tracks.map((track) => <div key={track.id} className="timeline-row" data-track-id={track.id}>
+          <div className="track-label">
+            <span draggable={!busy} onDragStart={(event) => event.dataTransfer.setData(trackDragType, track.id)}
+              onDragOver={(event) => { if (event.dataTransfer.types.includes(trackDragType)) event.preventDefault(); }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const from = event.dataTransfer.getData(trackDragType);
+                if (from && !busy) attempt((draft) => reorderTrack(draft, from, track.id));
+              }}>{track.name}</span>
+            <button disabled={busy} aria-label={s.lockTrack} title={s.lockTrack} aria-pressed={!!track.locked}
+              onClick={() => edit((draft) => {
+                const found = draft.tracks.find((entry) => entry.id === track.id);
+                if (found) found.locked = !found.locked;
+              })}>⌑</button>
+            <button disabled={busy || track.locked} aria-label={s.removeTrack} title={s.removeTrack}
+              onClick={() => attempt((draft) => removeTrack(draft, track.id))}>×</button>
+          </div>
+          <div className="track-lane" onPointerDown={(event) => {
+            if (event.button !== 0 || busy) return;
+            capture(event);
+            const at = point(event);
+            setGesture({ kind: 'box', origin: at, point: at, extend: event.shiftKey || event.ctrlKey });
+          }} onDragOver={(event) => { if (event.dataTransfer.types.includes(assetDragType)) event.preventDefault(); }}
+          onDrop={(event) => dropAsset(event, track.id)}>
+            {track.clips.filter((clip) => clip.start <= visibleEnd && clip.start + clip.duration >= visibleStart)
+              .map((clip) => <ClipBlock key={clip.id} clip={clip} asset={assets.get(clip.assetId ?? '')} zoom={zoom}
+                active={selected.has(clip.id)} delta={gesture && 'ids' in gesture && gesture.ids.has(clip.id) ? dragDelta : 0}
+                gesture={gesture && 'clip' in gesture ? gesture.kind : undefined}
+                start={(event, kind) => startClip(event, clip, track, kind)} />)}
+          </div>
+        </div>)}
+        <div className="timeline-row">
+          <div className="track-label" />
+          <div className="track-lane add-lane muted"
+            onDragOver={(event) => { if (event.dataTransfer.types.includes(assetDragType)) event.preventDefault(); }}
+            onDrop={(event) => dropAsset(event)}>{s.dropTrack}</div>
+        </div>
+        <div className="timeline-playhead" style={{ left: labelsWidth + playhead * zoom }} />
+        {gesture?.kind === 'box' && <div className="selection-box" style={{
+          left: labelsWidth + Math.min(gesture.origin.x, gesture.point.x),
+          top: Math.min(gesture.origin.y, gesture.point.y),
+          width: Math.abs(gesture.origin.x - gesture.point.x),
+          height: Math.abs(gesture.origin.y - gesture.point.y),
+        }} />}
+      </div>
+    </div>
+  </section>;
+}
+
+function ClipBlock({ clip, asset, zoom, active, delta, gesture, start }: {
+  clip: Clip; asset?: Asset; zoom: number; active: boolean; delta: number; gesture?: 'move' | 'left' | 'right';
+  start(event: PointerEvent, kind: 'move' | 'left' | 'right'): void;
+}) {
+  const name = clip.text ?? asset?.path.split(/[\\/]/).at(-1) ?? s[clip.type];
+  const left = (clip.start + (gesture === 'right' ? 0 : delta)) * zoom;
+  const width = (clip.duration + (gesture === 'right' ? delta : gesture === 'left' ? -delta : 0)) * zoom;
+  const tile = asset?.thumbPath && `url("editor-media://thumbnail/${encodeURIComponent(asset.id)}")`;
+  return <div role="button" tabIndex={0} aria-label={name} aria-pressed={active} data-clip-id={clip.id}
+    className={`timeline-clip clip-${clip.type}${active ? ' selected' : ''}`}
+    style={{ left, width: Math.max(3, width), backgroundImage: tile || undefined }}
+    onPointerDown={(event) => start(event, 'move')}>
+    <span>{name}</span>
+    <i className="trim left" onPointerDown={(event) => start(event, 'left')} />
+    <i className="trim right" onPointerDown={(event) => start(event, 'right')} />
+  </div>;
+}

@@ -1,0 +1,28 @@
+.timeline { background: var(--panel); border-top: 1px solid var(--line); min-width: 0; }
+.timeline-tools { display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; padding: .6rem; }
+.timeline-tools button { font-size: .8rem; padding: .35rem .55rem; }
+.timeline button[aria-pressed="true"] { background: var(--accent); color: white; }
+.timeline-zoom { display: flex; align-items: center; font-size: .8rem; }
+.timeline-zoom input { width: 84px; padding: 0; }
+.timeline-time { margin-left: auto; font-variant-numeric: tabular-nums; }
+.timeline-scroll { overflow: auto; max-height: 31vh; border-top: 1px solid var(--line); }
+.timeline-surface { position: relative; min-height: 130px; user-select: none; }
+.timeline-row { display: flex; min-height: 45px; border-bottom: 1px solid var(--line); }
+.timeline-row.ruler { min-height: 30px; }
+.track-label { width: 152px; flex: none; display: flex; align-items: center; gap: .3rem; padding: .25rem .5rem; background: var(--panel); position: sticky; left: 0; z-index: 3; border-right: 1px solid var(--line); }
+.track-label span { flex: 1; cursor: grab; overflow: hidden; text-overflow: ellipsis; }
+.track-label button { padding: .1rem .4rem; }
+.track-lane { flex: 1; position: relative; overflow: hidden; touch-action: none; }
+.add-lane { padding: .6rem; }
+.tick { position: absolute; top: 0; height: 100%; padding: 1px 0 0 4px; font-size: 10px; border-left: 1px solid var(--line); white-space: nowrap; pointer-events: none; }
+.timeline-marker { position: absolute; bottom: 0; width: 7px; height: 7px; background: #f9b257; border-radius: 50%; }
+.timeline-playhead { position: absolute; top: 0; bottom: 0; width: 1px; background: #a297ff; pointer-events: none; z-index: 2; }
+.selection-box { position: absolute; border: 1px solid #a297ff; background: #8a75ff33; pointer-events: none; z-index: 2; }
+.timeline-clip { position: absolute; top: 3px; bottom: 3px; border: 1px solid #8380cb; border-radius: 5px; background-color: #343373; background-repeat: repeat-x; background-size: auto 100%; color: white; overflow: hidden; cursor: grab; }
+.timeline-clip.selected { outline: 2px solid #d9d0ff; outline-offset: -2px; }
+.timeline-clip span { display: block; padding: 3px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-shadow: 0 1px 4px #000; background: #14142677; font-size: 11px; }
+.clip-audio { background-color: #176e63; border-color: #5aa99c; }
+.clip-text { background-color: #6a3867; border-color: #aa68a5; }
+.trim { width: 7px; position: absolute; top: 0; bottom: 0; cursor: ew-resize; }
+.trim.left { left: 0; }
+.trim.right { right: 0; }
