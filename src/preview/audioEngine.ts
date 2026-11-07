@@ -80,6 +80,10 @@ export class AudioEngine {
     element.crossOrigin = 'anonymous';
     element.preload = 'auto';
     element.preservesPitch = true;
+    if (asset.proxyPath) element.onerror = () => {
+      element.onerror = null;
+      element.src = `editor-media://proxy/${encodeURIComponent(asset.id)}`;
+    };
     element.src = `editor-media://source/${encodeURIComponent(asset.id)}`;
     const source = context.createMediaElementSource(element);
     const gain = context.createGain();
@@ -92,6 +96,7 @@ export class AudioEngine {
 
   private release(id: string, channel: Channel) {
     channel.element.pause();
+    channel.element.onerror = null;
     channel.element.removeAttribute('src');
     channel.element.load();
     channel.source.disconnect();

@@ -1,7 +1,7 @@
 import type { Asset, Clip } from '../types/project';
 
 type Element = HTMLVideoElement | HTMLImageElement;
-type Entry = { element: Element; key: string; failed: boolean };
+type Entry = { element: Element; key: string; failed: boolean; still?: ImageBitmap };
 
 export class MediaElements {
   private entries = new Map<string, Entry>();
@@ -16,12 +16,13 @@ export class MediaElements {
     const element = kind === 'image' ? new Image() : document.createElement('video');
     const entry: Entry = { element, key, failed: false };
     const original = `editor-media://source/${encodeURIComponent(asset.id)}`;
-    let hasProxy = proxy;
+    let fallback = proxy ? original : asset.proxyPath && kind === 'video'
+      ? `editor-media://proxy/${encodeURIComponent(asset.id)}` : undefined;
     element.crossOrigin = 'anonymous';
     element.onerror = () => {
-      if (hasProxy) {
-        hasProxy = false;
-        element.src = original;
+      if (fallback) {
+        element.src = fallback;
+        fallback = undefined;
       } else {
         entry.failed = true;
         onChange();
@@ -33,7 +34,13 @@ export class MediaElements {
       element.playsInline = true;
       element.onloadeddata = onChange;
       element.onseeked = onChange;
-    } else element.onload = onChange;
+    } else element.onload = () => {
+      if (!/\.gif$/i.test(asset.path)) { onChange(); return; }
+      void createImageBitmap(element).then((bitmap) => {
+        if (this.entries.get(clip.id) === entry) { entry.still = bitmap; onChange(); }
+        else bitmap.close();
+      }).catch(onChange);
+    };
     element.src = proxy ? `editor-media://proxy/${encodeURIComponent(asset.id)}` : original;
     this.entries.set(clip.id, entry);
     return entry;
@@ -57,7 +64,8 @@ export class MediaElements {
     this.entries.clear();
   }
 
-  private release({ element }: Entry) {
+  private release({ element, still }: Entry) {
+    still?.close();
     element.onerror = null;
     if (element instanceof HTMLVideoElement) {
       element.onloadeddata = null;

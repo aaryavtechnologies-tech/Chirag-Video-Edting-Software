@@ -11,6 +11,7 @@ export const preferencesSchema = z.object({
 const recentSchema = z.object({
   file: z.string(), name: z.string(), editedAt: z.string(), duration: z.number(),
   width: z.number(), height: z.number(), background: z.string(),
+  thumbnail: z.string().regex(/^[\da-f]{64}$/).optional(),
 });
 
 const settingsSchema = z.object({
@@ -48,10 +49,12 @@ export class Settings {
     return this.write({ ...this.value, preferences: preferencesSchema.parse(preferences) });
   }
 
-  remember(project: OpenProject) {
+  remember(project: OpenProject, thumbnail?: string) {
+    const previous = this.value.recent.find((item) => item.file === project.file);
     return this.write({
       ...this.value,
-      recent: [recentProject(project), ...this.value.recent.filter((item) => item.file !== project.file)].slice(0, 30),
+      recent: [recentProject(project, thumbnail ?? previous?.thumbnail),
+        ...this.value.recent.filter((item) => item.file !== project.file)].slice(0, 30),
     });
   }
 

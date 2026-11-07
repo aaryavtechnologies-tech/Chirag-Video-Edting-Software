@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent } from 'react';
 import { strings as s } from '../lib/strings';
 import { alignFrame, timecode } from '../lib/time';
 import { findClip, projectDuration } from '../timeline/operations';
@@ -21,9 +21,10 @@ interface Props {
   edit(recipe: (draft: Project) => void): void;
   volume: number; setVolume(value: number): void; peak: number;
   selected?: string; onSelect(clipId?: string, trackId?: string): void;
+  snapshot: MutableRefObject<(() => string | undefined) | undefined>;
 }
 
-export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect }: Props) {
+export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
@@ -73,7 +74,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
     const ctx = element?.getContext('2d', { alpha: false });
     if (!element || !ctx) return;
     const layers = activeLayers(project, playhead);
-    function draw() {
+    function draw(handles = true) {
       if (!element || !ctx) return;
       ctx.fillStyle = /^#[\da-f]{6}$/i.test(background) ? background : '#000000';
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -91,7 +92,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
         const asset = assets.get(clip.assetId ?? '');
         if (!asset) { missing = true; continue; }
         active.add(clip.id);
-        const { element: source, failed } = media.current.use(clip, asset, quality !== 'full', () => redraw.current());
+        const { element: source, failed, still } = media.current.use(clip, asset, quality !== 'full', () => redraw.current());
         if (failed) { missing = true; continue; }
         if (source instanceof HTMLVideoElement) {
           const rate = clip.speed ?? 1;
@@ -109,17 +110,17 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
           if (source.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || source.seeking) { loading = true; continue; }
         } else if (!source.complete || !source.naturalWidth) { loading = true; continue; }
         const size = layerSize(clip, asset, canvasWidth, canvasHeight);
-        drawLayer(ctx, source, clip, playhead, size, transform);
+        drawLayer(ctx, still ?? source, clip, playhead, size, transform);
       }
       media.current.suspendExcept(active);
       const current = layers.find((clip) => clip.id === selected);
       const unit = element.clientWidth ? canvasWidth / element.clientWidth : 1;
-      if (current && !playing) {
+      if (current && !playing && handles) {
         const transform = drag?.clipId === current.id ? drag.next : clipTransform(current);
         if (current.id !== inline) drawHandles(ctx, sizeFor(current),
           current.type === 'text' ? animateText(current, transform, playhead) : transform, unit);
       }
-      if (drag && !playing) {
+      if (drag && !playing && handles) {
         ctx.strokeStyle = '#f9b257';
         ctx.lineWidth = unit;
         ctx.beginPath();
@@ -136,7 +137,24 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
       setStatus(missing ? s.missingPreview : loading ? s.seeking : '');
     }
     redraw.current = draw;
+    snapshot.current = () => {
+      if (!element || !layers.length) return;
+      try {
+        draw(false);
+        const thumb = document.createElement('canvas');
+        const scale = Math.min(320 / element.width, 180 / element.height);
+        thumb.width = Math.max(1, Math.round(element.width * scale));
+        thumb.height = Math.max(1, Math.round(element.height * scale));
+        thumb.getContext('2d')!.drawImage(element, 0, 0, thumb.width, thumb.height);
+        return thumb.toDataURL('image/jpeg', 0.8).split(',')[1];
+      } catch {
+        return undefined;
+      } finally {
+        draw();
+      }
+    };
     draw();
+    return () => { snapshot.current = undefined; };
   });
 
   function point(event: PointerEvent<HTMLCanvasElement>) {

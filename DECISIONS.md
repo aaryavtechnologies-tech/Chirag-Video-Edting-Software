@@ -11,4 +11,7 @@
 - M6 saves text presets in the project file and represents fill opacity with alpha-channel colors so it fits the supplied file format.
 - M7 fits the project stage into the export frame when their aspect ratios differ. MP4 uses AAC and WebM uses Opus. Outputs are published only after verification, and existing files are protected.
 - M8 tests available hardware encoders at the requested output dimensions and fps before using them. A driver failure during rendering triggers a fresh software encode.
+- M9 stages dirty edits in the main process and writes a separate autosave on the configured interval. Saving clears the checkpoint. Relinking retains the asset ID and checks the replacement's media type and duration.
+- M9 also builds preview proxies for MOV, MKV, and AVI sources to cover browser decoder differences. Exports still read the originals.
+- A basic cross-fade uses overlapping clips on separate video tracks with a fade on the upper clip.
 

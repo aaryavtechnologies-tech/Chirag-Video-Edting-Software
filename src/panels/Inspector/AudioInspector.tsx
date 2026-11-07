@@ -16,6 +16,7 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
   const hasAudio = clip?.type === 'audio' || (clip?.type === 'video' &&
     project.assets.some((asset) => asset.id === clip.assetId && asset.hasAudio));
   const showSpeed = clip?.type === 'video' || clip?.type === 'audio';
+  const visual = clip?.type === 'video' || clip?.type === 'image';
   const updateTrack = (value: Partial<Track>) => edit((draft) => {
     const target = draft.tracks.find((item) => item.id === track?.id);
     if (target) Object.assign(target, value);
@@ -37,6 +38,25 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
       <NumberControl label={s.trackVolume} value={track.volume ?? 1} min={0} max={2} step={0.05}
         change={(volume) => updateTrack({ volume })} />
     </fieldset>}
+    {clip && visual && <fieldset disabled={track?.locked}>
+      <legend>{s.video}</legend>
+      <label>{s.fit}<select value={clip.fit ?? 'contain'} onChange={(event) => {
+        const fit = event.target.value === 'cover' ? 'cover' : 'contain';
+        edit((draft) => {
+          const target = findClip(draft, clip.id);
+          if (target && !target.track.locked) target.clip.fit = fit;
+        });
+      }}><option value="contain">{s.contain}</option><option value="cover">{s.cover}</option></select></label>
+      <NumberControl label={s.opacity} value={clip.transform?.opacity ?? 1} min={0} max={1} step={0.05}
+        change={(opacity) => edit((draft) => {
+          const target = findClip(draft, clip.id);
+          if (target && !target.track.locked) target.clip.transform = { ...target.clip.transform, opacity };
+        })} />
+      <NumberControl label={s.fadeIn} value={clip.fadeIn ?? 0} min={0} max={clip.duration} step={0.05}
+        change={(fadeIn) => updateClip({ fadeIn })} />
+      <NumberControl label={s.fadeOut} value={clip.fadeOut ?? 0} min={0} max={clip.duration} step={0.05}
+        change={(fadeOut) => updateClip({ fadeOut })} />
+    </fieldset>}
     {clip && (hasAudio || showSpeed) && <fieldset disabled={track?.locked}>
       <legend>{s.audio}</legend>
       {hasAudio && <>
@@ -44,10 +64,12 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
           onChange={(event) => updateClip({ muted: event.target.checked })} />{s.muteClip}</label>
         <NumberControl label={s.clipVolume} value={clip.volume ?? 1} min={0} max={2} step={0.05}
           change={(volume) => updateClip({ volume })} />
-        <NumberControl label={s.fadeIn} value={clip.fadeIn ?? 0} min={0} max={clip.duration} step={0.05}
-          change={(fadeIn) => updateClip({ fadeIn })} />
-        <NumberControl label={s.fadeOut} value={clip.fadeOut ?? 0} min={0} max={clip.duration} step={0.05}
-          change={(fadeOut) => updateClip({ fadeOut })} />
+        {!visual && <>
+          <NumberControl label={s.fadeIn} value={clip.fadeIn ?? 0} min={0} max={clip.duration} step={0.05}
+            change={(fadeIn) => updateClip({ fadeIn })} />
+          <NumberControl label={s.fadeOut} value={clip.fadeOut ?? 0} min={0} max={clip.duration} step={0.05}
+            change={(fadeOut) => updateClip({ fadeOut })} />
+        </>}
       </>}
       {showSpeed && <NumberControl label={s.speed} value={clip.speed ?? 1} min={0.25} max={4} step={0.05}
         change={(value) => {

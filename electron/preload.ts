@@ -7,8 +7,8 @@ const api: DesktopApi = {
   preferences: (value) => ipcRenderer.invoke(channels.preferences, value),
   folder: (current) => ipcRenderer.invoke(channels.folder, current),
   create: (value) => ipcRenderer.invoke(channels.create, value),
-  open: (file) => ipcRenderer.invoke(channels.open, file),
-  save: (project) => ipcRenderer.invoke(channels.save, project),
+  open: (file, recover) => ipcRenderer.invoke(channels.open, file, recover),
+  save: (project, thumbnail) => ipcRenderer.invoke(channels.save, project, thumbnail),
   rename: (file, name) => ipcRenderer.invoke(channels.rename, file, name),
   duplicate: (file, name) => ipcRenderer.invoke(channels.duplicate, file, name),
   remove: (file) => ipcRenderer.invoke(channels.remove, file),
@@ -24,6 +24,11 @@ const api: DesktopApi = {
   startExport: (value, file, rasters) => ipcRenderer.invoke(channels.startExport, value, file, rasters),
   cancelExport: () => ipcRenderer.invoke(channels.cancelExport),
   openLog: () => ipcRenderer.invoke(channels.openLog),
+  stage: (project) => ipcRenderer.invoke(channels.stage, project),
+  saveAs: (project, name, folder) => ipcRenderer.invoke(channels.saveAs, project, name, folder),
+  discardRecovery: (file) => ipcRenderer.invoke(channels.discardRecovery, file),
+  missing: (id) => ipcRenderer.invoke(channels.missing, id),
+  relink: (id, asset) => ipcRenderer.invoke(channels.relink, id, asset),
   onExportProgress: (listener) => {
     const forward = (_event: IpcRendererEvent, progress: ExportProgress) => listener(progress);
     ipcRenderer.on(exportProgressChannel, forward);

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import type { NewProject, OpenProject, RecentProject } from '../../src/types/des
 import type { Project } from '../../src/types/project';
 
 export const ownedFolderMarker = '.video-editor-project';
+export const thumbnailKey = (file: string) => createHash('sha256').update(file).digest('hex');
 export const nameSchema = z.string().trim().min(1).max(120).refine(
   (name) => !/[<>:"/\\|?*\u0000-\u001f]/u.test(name) && !/[. ]$/.test(name) &&
     !/^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(?:\.|$)/i.test(name),
@@ -92,11 +93,11 @@ export async function createProject(request: NewProject, source?: Project): Prom
   }
 }
 
-export function recentProject({ file, project }: OpenProject): RecentProject {
+export function recentProject({ file, project }: OpenProject, thumbnail?: string): RecentProject {
   const duration = project.tracks.reduce((end, track) =>
     track.clips.reduce((latest, clip) => Math.max(latest, clip.start + clip.duration), end), 0);
   const { width, height, background = '#000000' } = project.settings;
   return { file, name: project.name, editedAt: project.updatedAt ?? project.createdAt ?? '',
-    duration, width, height, background };
+    duration, width, height, background, thumbnail };
 }
 

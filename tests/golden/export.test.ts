@@ -58,3 +58,39 @@ it('cancels an active encoder and removes partial and final output', async () =>
     await rm(folder, { recursive: true, force: true });
   }
 }, 30_000);
+
+it('exports a three-second audio-only MP3 with track solo and clip mute', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'video-editor-audio-'));
+  try {
+    const path = join(folder, 'tone.wav');
+    await runMediaTool('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
+      'sine=frequency=440:duration=3', path]);
+    const project: Project = {
+      id: 'audio', version: 1, name: 'Audio', settings: { width: 1920, height: 1080, fps: 30 },
+      assets: [{ id: 'tone', type: 'audio', path, duration: 3 }],
+      tracks: [
+        { id: 'solo', name: 'A1', kind: 'audio', solo: true, clips: [
+          { id: 'audible', assetId: 'tone', type: 'audio', start: 0, duration: 1 },
+          { id: 'muted', assetId: 'tone', type: 'audio', start: 1, duration: 2, muted: true },
+        ] },
+        { id: 'suppressed', name: 'A2', kind: 'audio', clips: [
+          { id: 'other', assetId: 'tone', type: 'audio', start: 0, duration: 3 },
+        ] },
+      ],
+    };
+    const settings: ExportSettings = { mode: 'audio', videoFormat: 'h264', audioFormat: 'mp3',
+      width: 1920, height: 1080, fps: 30, bitrate: 10, audioBitrate: 320, volume: 1, hardware: false, openFolder: false };
+    const output = join(folder, 'solo.mp3');
+    await exportProject(project, settings, output, [], () => undefined, new AbortController().signal);
+    const { streams } = await verifyExport(output, 3);
+    expect(streams.map((stream) => stream.codec_name)).toEqual(['mp3']);
+    const peak = (start: string) => runMediaTool('ffmpeg', ['-hide_banner', '-loglevel', 'error',
+      '-ss', start, '-t', '0.25', '-i', output,
+      '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.Peak_level:file=-',
+      '-f', 'null', '-']);
+    expect(await peak('0.25')).toMatch(/Peak_level=-\d/);
+    expect(await peak('1.5')).toMatch(/Peak_level=-inf/);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+}, 15_000);

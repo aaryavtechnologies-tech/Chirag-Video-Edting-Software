@@ -1,11 +1,12 @@
 import { expect, test, _electron as electron } from '@playwright/test';
 import { execFile } from 'node:child_process';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { readFile, mkdir, readdir, rename, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import ffmpeg from 'ffmpeg-static';
 import { strings as s } from '../../src/lib/strings';
 import { createProject, saveProject } from '../../electron/services/projects';
+import { verifyExport } from '../../electron/services/export';
 
 test('creates a 4K60 project and reopens it from Home', async ({}, testInfo) => {
   const { app, projects } = await launch(testInfo.outputPath('workspace'));
@@ -79,24 +80,71 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
       thumbPath: expect.stringMatching(/^cache\//), proxyPath: expect.stringMatching(/^cache\//),
       waveformPath: expect.stringMatching(/^cache\//),
     });
+    await page.getByRole('button', { name: s.home, exact: true }).click();
+    const moved = join(root, 'moved.mp4');
+    await rename(source, moved);
+    await page.getByRole('button', { name: new RegExp(s.defaultName) }).click();
+    await expect(page.getByRole('dialog', { name: s.relink })).toBeVisible();
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
+    }, moved);
+    await page.getByRole('button', { name: s.locate }).click();
+    await expect(page.getByRole('dialog', { name: s.relink })).toHaveCount(0);
+    expect(JSON.parse(await readFile(file, 'utf8')).assets[0].path).toBe(moved);
   } finally {
     await app.close();
   }
 });
 
-async function launch(root: string) {
+async function launch(root: string, reuse = false) {
   const profile = resolve(root, 'profile');
   const projects = resolve(root, 'projects');
   await mkdir(profile, { recursive: true });
   await mkdir(projects, { recursive: true });
-  await writeFile(join(profile, 'settings.json'), JSON.stringify({
-    preferences: { folder: projects, theme: 'dark', autosave: 30 }, recent: [],
-  }));
+  if (!reuse) {
+    await writeFile(join(profile, 'settings.json'), JSON.stringify({
+      preferences: { folder: projects, theme: 'dark', autosave: 5 }, recent: [],
+    }));
+  }
   const app = await electron.launch({
     args: [`--user-data-dir=${profile}`, '.'],
   });
+  await app.evaluate(({ dialog }) => {
+    dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false });
+  });
   return { app, projects };
 }
+
+test('recovers an autosaved edit after an interrupted session', async ({}, testInfo) => {
+  const root = testInfo.outputPath('workspace');
+  const { app, projects } = await launch(root);
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.text, exact: true }).click();
+    await page.getByRole('button', { name: s.title, exact: true }).click();
+    const checkpoint = join(projects, s.defaultName, s.defaultName + '.autosave.vedit');
+    await expect.poll(async () => readFile(checkpoint, 'utf8').catch(() => ''), { timeout: 12_000 }).toContain('"text": "Title"');
+    const ended = app.waitForEvent('close', { timeout: 7000 });
+    await app.evaluate(({ app }) => { setTimeout(() => app.exit(0), 50); });
+    await ended;
+  } finally {
+    await app.close().catch(() => undefined);
+  }
+
+  const reopened = await launch(root, true);
+  try {
+    const page = await reopened.app.firstWindow();
+    await expect(page.getByRole('dialog', { name: s.recovery })).toBeVisible();
+    await page.getByRole('button', { name: s.restore }).click();
+    await expect(page.locator('.clip-text')).toHaveText(s.title);
+    await page.getByRole('button', { name: s.save, exact: true }).click();
+    await expect(page.getByText(s.saved)).toBeVisible();
+  } finally {
+    await reopened.app.close();
+  }
+});
 
 test('plays three video layers at Half quality in track order', async ({}, testInfo) => {
   const root = testInfo.outputPath('workspace');
@@ -202,6 +250,63 @@ test('edits a title on the canvas and saves its gradient style', async ({}, test
     expect(coverage.preview).toBeGreaterThan(100);
     expect(coverage.export / coverage.preview).toBeGreaterThan(0.8);
     expect(coverage.export / coverage.preview).toBeLessThan(1.2);
+  } finally {
+    await app.close();
+  }
+});
+
+test('exports the layered sample project as 4K60 MP4 and MP3', async ({}, testInfo) => {
+  test.setTimeout(90_000);
+  const root = testInfo.outputPath('workspace');
+  const sample = process.env.VIDEO_EDITOR_SAMPLE_ROOT || join(root, 'sample');
+  const { stdout } = await promisify(execFile)(process.execPath, ['samples/create-demo.mjs', sample]);
+  const project = stdout.trim();
+  const directory = join(dirname(project), 'media');
+  const media = (await readdir(directory)).map((file) => join(directory, file));
+  const { app, projects } = await launch(root);
+  try {
+    const output = join(projects, 'Demo-4K60.mp4');
+    await app.evaluate(({ dialog }, paths) => {
+      dialog.showOpenDialog = async (first: Electron.BaseWindow | Electron.OpenDialogOptions, second?: Electron.OpenDialogOptions) => {
+        const options = second ?? ('filters' in first ? first : undefined);
+        return { canceled: false,
+          filePaths: options?.filters?.[0]?.extensions.includes('vedit') ? [paths.project] : paths.media };
+      };
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.output });
+    }, { project, output, media });
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.importMedia }).click();
+    await expect(page.locator('.media-grid li')).toHaveCount(6);
+    for (const filter of ['video', 'image', 'audio']) {
+      await page.getByLabel(s.filterMedia).selectOption(filter);
+      await expect(page.locator('.media-grid li')).toHaveCount(2);
+    }
+    await page.getByRole('button', { name: s.home, exact: true }).click();
+    await page.getByRole('button', { name: s.openProject }).click();
+    await expect(page.locator('.clip-video')).toHaveCount(2);
+    await expect(page.locator('.clip-image')).toHaveCount(2);
+    await expect(page.locator('.clip-text')).toHaveCount(3);
+    await expect(page.locator('.clip-audio')).toHaveCount(2);
+    await page.getByRole('button', { name: s.export, exact: true }).click();
+    await page.getByRole('button', { name: s.youtube4k }).click();
+    await page.getByLabel(s.exportMode).selectOption('both');
+    await page.getByRole('button', { name: s.chooseOutput }).click();
+    await expect(page.getByText(s.exportDone)).toBeVisible({ timeout: 65_000 });
+    await verifyExport(output, 3, { width: 3840, height: 2160, fps: 60, videoFormat: 'h264' });
+    expect((await verifyExport(join(projects, 'Demo-4K60.mp3'), 3)).streams[0].codec_name).toBe('mp3');
+    await page.getByRole('button', { name: s.cancel, exact: true }).click();
+    const cancelled = join(projects, 'Cancelled.mp4');
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: path });
+    }, cancelled);
+    await page.getByRole('button', { name: s.export, exact: true }).click();
+    await page.getByRole('button', { name: s.chooseOutput }).click();
+    await page.getByRole('button', { name: s.cancelExport }).click();
+    await expect(page.getByRole('dialog', { name: s.export })).toHaveCount(0);
+    await expect(page.getByText(s.exportCancelled)).toBeVisible();
+    expect((await readdir(projects)).some((file) => file.includes('Cancelled') || file.includes('.partial'))).toBe(false);
   } finally {
     await app.close();
   }

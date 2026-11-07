@@ -4,3 +4,4 @@ release/
 playwright-report/
 test-results/
 .npm-cache/
+samples/Demo/

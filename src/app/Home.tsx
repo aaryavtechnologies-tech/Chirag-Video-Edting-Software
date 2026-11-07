@@ -28,9 +28,10 @@ export function Home({ recent, busy, create, open, settings, action }: {
       <div className="cards">
         {matches.map((project) => <article className="card" key={project.file}>
           <button className="card-open" onClick={() => open(project.file)} disabled={busy}>
-            <div className="thumbnail"><span style={{
+            <div className="thumbnail">{project.thumbnail ?
+              <img alt="" src={`editor-media://recent/${project.thumbnail}`} /> : <span style={{
               aspectRatio: project.width / project.height, backgroundColor: project.background,
-            }} /></div>
+            }} />}</div>
             <strong>{project.name}</strong>
             <span className="muted">{project.width} × {project.height} · {Math.floor(project.duration / 60)}:{String(Math.floor(project.duration % 60)).padStart(2, '0')}</span>
             {Number.isFinite(Date.parse(project.editedAt)) &&

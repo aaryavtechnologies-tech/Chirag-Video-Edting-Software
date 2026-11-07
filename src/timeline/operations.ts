@@ -158,3 +158,30 @@ export function deleteClips(project: Project, ids: ReadonlySet<string>, ripple: 
     }
   }
 }
+
+export type ClipboardClip = { trackId: string; clip: Clip };
+
+export function copyClips(project: Project, ids: ReadonlySet<string>): ClipboardClip[] {
+  return project.tracks.flatMap((track) => track.clips.filter((clip) => ids.has(clip.id))
+    .map((clip) => ({ trackId: track.id, clip })));
+}
+
+export function pasteClips(project: Project, items: ClipboardClip[], time: number, nextId: () => string) {
+  if (!items.length || !Number.isFinite(time) || time < 0) return [];
+  const first = Math.min(...items.map(({ clip }) => clip.start));
+  const ids = new Map(items.map(({ clip }) => [clip.id, nextId()]));
+  const placed: { track: Track; clip: Clip }[] = [];
+  for (const item of items) {
+    const track = project.tracks.find((entry) => entry.id === item.trackId);
+    if (!track || track.locked || track.kind !== family(item.clip.type)) return [];
+    const clip = {
+      ...item.clip, id: ids.get(item.clip.id)!, start: time + item.clip.start - first,
+      ...(item.clip.linkedClipId && { linkedClipId: ids.get(item.clip.linkedClipId) ?? null }),
+    };
+    if (track.clips.some((entry) => overlaps(clip, entry)) ||
+      placed.some((entry) => entry.track === track && overlaps(clip, entry.clip))) return [];
+    placed.push({ track, clip });
+  }
+  for (const { track, clip } of placed) track.clips.push(clip);
+  return placed.map(({ clip }) => clip.id);
+}

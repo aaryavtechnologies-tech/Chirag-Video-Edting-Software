@@ -41,8 +41,8 @@ async function prepareRasters(project: Project, settings: ExportSettings, cancel
   return rasters;
 }
 
-export function ExportDialog({ project, volume, save, close }: {
-  project: Project; volume: number; save(): Promise<void>; close(): void;
+export function ExportDialog({ project, volume, save, close, onCancelled }: {
+  project: Project; volume: number; save(): Promise<void>; close(): void; onCancelled(): void;
 }) {
   const total = projectDuration(project);
   const [value, setValue] = useState<ExportSettings>({
@@ -76,14 +76,17 @@ export function ExportDialog({ project, volume, save, close }: {
     const control = new AbortController();
     setController(control);
     try {
-      const file = await window.desktop.chooseExport(value);
+      const settings = value.mode === 'audio' && !Number.isFinite(value.bitrate) ? { ...value, bitrate: 10 } : value;
+      const file = await window.desktop.chooseExport(settings);
       if (!file) return;
       setStatus('preparing');
       await save();
-      const rasters = await prepareRasters(project, value, () => control.signal.aborted);
-      if (control.signal.aborted) { setResult({ files: [], cancelled: true }); return; }
+      const rasters = await prepareRasters(project, settings, () => control.signal.aborted);
+      if (control.signal.aborted) { onCancelled(); return; }
       setStatus('rendering');
-      setResult(await window.desktop.startExport(value, file, rasters));
+      const exported = await window.desktop.startExport(settings, file, rasters);
+      if (exported.cancelled) onCancelled();
+      else setResult(exported);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message.replace(/^.*?Error: /, '') : s.exportFailed);
     } finally {
@@ -204,7 +207,7 @@ export function ExportDialog({ project, volume, save, close }: {
     </div>}
     {error && <p className="error" role="alert">{error} <button onClick={() => void window.desktop.openLog()}>{s.openLog}</button></p>}
     {result && <div className="mt-3" role="status">
-      <strong>{result.cancelled ? s.exportCancelled : s.exportDone}</strong>
+      <strong>{s.exportDone}</strong>
       {result.encoder && <p className="muted">{s.encoder} {result.encoder}</p>}
       <ul className="muted break-all">{result.files.map((file) => <li key={file}>{file}</li>)}</ul>
     </div>}

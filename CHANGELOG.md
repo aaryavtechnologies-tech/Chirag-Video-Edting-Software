@@ -1,5 +1,10 @@
 # Changelog
 
+## M9
+
+- Added autosave, crash recovery, missing-media relinking, project settings, Save As, and resizable editor panels.
+- Added the layered demo generator, release checks, and the Windows NSIS build.
+
 ## M8
 
 - Added verified 4K60 export, encoding presets, hardware encoder probing, software fallback, and output size and free-space checks.

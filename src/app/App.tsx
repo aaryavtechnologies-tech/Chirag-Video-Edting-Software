@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { strings as s } from '../lib/strings';
 import { useProject } from '../store/projectStore';
 import type { HomeState, RecentProject } from '../types/desktop';
 import { Home } from './Home';
 import { Modal } from './Modal';
-import { NewProjectForm, PreferencesForm } from './ProjectForms';
+import { NewProjectForm, PreferencesForm, SaveAsForm } from './ProjectForms';
 import { MediaBin } from '../panels/MediaBin';
 import { Timeline } from '../timeline/Timeline';
 import { addTrack, findClip, overlaps, projectDuration } from '../timeline/operations';
@@ -16,30 +16,53 @@ import { TextInspector } from '../panels/Inspector/TextInspector';
 import { TextPanel } from '../panels/TextPanel';
 import { textKinds } from '../lib/textPresets';
 import { alignFrame } from '../lib/time';
-import type { Clip } from '../types/project';
+import type { Asset, Clip, Project } from '../types/project';
+import type { OpenProject } from '../types/desktop';
 import { ExportDialog } from '../export/ExportDialog';
+import { PanelResizer } from './PanelResizer';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
-type AppDialog = { kind: 'new' | 'settings' } | ProjectDialog;
+type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } | ProjectDialog;
 
 export function App() {
-  const { current, setCurrent, acceptSaved, edit, past, future, undo, redo, proxies, mediaProgress } = useProject();
+  const { current, setCurrent, acceptSaved, edit: storeEdit, past, future, undo, redo, proxies, mediaProgress } = useProject();
   const [home, setHome] = useState<HomeState>();
   const [modal, setModal] = useState<AppDialog>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const playback = usePlayback(current ? projectDuration(current.project) : 0);
+  const project = current?.project;
+  const duration = useMemo(() => project ? projectDuration(project) : 0, [project]);
+  const playback = usePlayback(duration);
   const audio = useRef(new AudioEngine());
+  const snapshot = useRef<() => string | undefined>();
   const [volume, setVolume] = useState(1);
   const [peak, setPeak] = useState(0);
   const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
   const [tab, setTab] = useState<'media' | 'text'>('media');
   const [exportOpen, setExportOpen] = useState(false);
+  const [missing, setMissing] = useState<Asset[]>([]);
+  const [mediaWidth, setMediaWidth] = useState(230);
+  const [inspectorWidth, setInspectorWidth] = useState(215);
+  const clampPanel = (width: number) => Math.min(310, Math.max(160, width));
   const select = useCallback((clipId?: string, trackId?: string) => setSelection({ clipId, trackId }), []);
-  const project = current?.project;
   const { playing, playhead } = playback;
   const inspected = project && selection.clipId ? findClip(project, selection.clipId)?.clip : undefined;
+
+  function edit(recipe: (draft: Project) => void) {
+    const before = useProject.getState().current;
+    storeEdit(recipe);
+    const next = useProject.getState().current;
+    if (next && next !== before) void window.desktop.stage(next.project).catch(() => setError(s.operationFailed));
+  }
+
+  async function openEditor(opened: OpenProject) {
+    setCurrent(opened);
+    setModal(undefined);
+    const files = await window.desktop.missing(opened.project.id);
+    setMissing(files);
+    if (files.length) setModal({ kind: 'relink' });
+  }
 
   function addText(kind: keyof typeof textKinds) {
     if (!project || busy) return;
@@ -72,7 +95,7 @@ export function App() {
   }
 
   function openExport() {
-    if (!project || busy || projectDuration(project) <= 0 || exportOpen) return;
+    if (!project || busy || duration <= 0 || exportOpen) return;
     if (playing) playback.toggle();
     setExportOpen(true);
   }
@@ -90,7 +113,11 @@ export function App() {
     }
   }
 
-  useEffect(() => { void run(async () => setHome(await window.desktop.home())); }, []);
+  useEffect(() => { void run(async () => {
+    const data = await window.desktop.home();
+    setHome(data);
+    if (data.recovery) setModal({ kind: 'recovery' });
+  }); }, []);
   useEffect(() => window.desktop.onMediaProgress(mediaProgress), [mediaProgress]);
   useEffect(() => {
     document.documentElement.dataset.theme = home?.preferences.theme ?? 'dark';
@@ -105,7 +132,7 @@ export function App() {
 
   function save() {
     if (current && !busy) void run(async () => {
-      acceptSaved(await window.desktop.save(current.project));
+      acceptSaved(await window.desktop.save(current.project, snapshot.current?.()));
       setNotice(s.saved);
     });
   }
@@ -143,7 +170,7 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if (!current || exportOpen) return;
+      if (!current || exportOpen || modal || event.defaultPrevented) return;
       const target = event.target;
       if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey &&
         (!(target instanceof HTMLElement) ||
@@ -162,7 +189,8 @@ export function App() {
       const key = event.key.toLowerCase();
       if (key === 's') {
         event.preventDefault();
-        save();
+        if (event.shiftKey) setModal({ kind: 'saveAs' });
+        else save();
       }
       if (key === 'e') { event.preventDefault(); openExport(); }
       if (key === 'z' && !(event.target instanceof HTMLInputElement) &&
@@ -181,7 +209,7 @@ export function App() {
     {current ? <main className="editor">
       <header className="flex flex-wrap items-center gap-4">
         <button disabled={busy} onClick={() => void run(async () => {
-          await window.desktop.save(current.project);
+          await window.desktop.save(current.project, snapshot.current?.());
           setHome(await window.desktop.home());
           setCurrent();
           playback.stop();
@@ -192,11 +220,14 @@ export function App() {
         <h1 className="text-xl font-semibold">{current.project.name}</h1>
         <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
         <button disabled={busy || !future.length} onClick={() => stepHistory('redo')}>{s.redo}</button>
+        <button disabled={busy} onClick={() => setModal({ kind: 'projectSettings' })}>{s.projectSettings}</button>
+        <button disabled={busy} onClick={() => setModal({ kind: 'saveAs' })}>{s.saveAs}</button>
+        {missing.length > 0 && <button disabled={busy} onClick={() => setModal({ kind: 'relink' })}>{s.relink}</button>}
         <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
-        <button className="primary" disabled={busy || projectDuration(current.project) <= 0}
+        <button className="primary" disabled={busy || duration <= 0}
           onClick={openExport}>{s.export}</button>
       </header>
-      <div className="editor-body">
+      <div className="editor-body" style={{ gridTemplateColumns: `${mediaWidth}px 5px minmax(0, 1fr) 5px ${inspectorWidth}px` }}>
         <div className="editor-sidebar">
           <div className="editor-tabs">
             <button aria-pressed={tab === 'media'} onClick={() => setTab('media')}>{s.media}</button>
@@ -205,19 +236,22 @@ export function App() {
           {tab === 'media' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy} importFiles={importFiles} /> :
             <TextPanel add={addText} busy={busy} />}
         </div>
+        <PanelResizer width={mediaWidth} resize={(width) => setMediaWidth(clampPanel(width))} />
         <PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
-          volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select} />
+          volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select}
+          snapshot={snapshot} />
+        <PanelResizer width={inspectorWidth} right resize={(width) => setInspectorWidth(clampPanel(width))} />
         {inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit} /> :
           <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
       </div>
       <Timeline key={current.project.id} project={current.project} edit={edit}
-        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen} onSelect={select} focusedClip={selection.clipId} />
+        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal} onSelect={select} focusedClip={selection.clipId} />
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}
       open={(file) => void run(async () => {
         const project = await window.desktop.open(file);
-        if (project) setCurrent(project);
+        if (project) await openEditor(project);
       })}
       action={(kind, project) => {
         if (kind === 'reveal') void run(() => window.desktop.reveal(project.file));
@@ -226,19 +260,61 @@ export function App() {
     {!modal && message}
     {notice && <p className="status" role="status">{notice}</p>}
     {current && exportOpen && <ExportDialog project={current.project} volume={volume}
-      save={async () => { acceptSaved(await window.desktop.save(current.project)); }}
+      save={async () => { acceptSaved(await window.desktop.save(current.project, snapshot.current?.())); }}
+      onCancelled={() => { setExportOpen(false); setNotice(s.exportCancelled); }}
       close={() => setExportOpen(false)} />}
     {home && modal && <Modal title={title} busy={busy} close={() => { setModal(undefined); setError(''); }}>
       {modal.kind === 'new' && <NewProjectForm preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onCreate={(value) => void run(async () => {
-          setCurrent(await window.desktop.create(value));
-          setModal(undefined);
+          await openEditor(await window.desktop.create(value));
         })} />}
       {modal.kind === 'settings' && <PreferencesForm preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onSave={(value) => void run(async () => {
           setHome(await window.desktop.preferences(value));
           setModal(undefined);
         })} />}
+      {modal.kind === 'projectSettings' && current && <NewProjectForm preferences={home.preferences}
+        initial={current.project.settings} busy={busy} onFolder={pickFolder} onCreate={({ settings }) => {
+          edit((draft) => { draft.settings = settings; });
+          setModal(undefined);
+        }} />}
+      {modal.kind === 'saveAs' && current && <SaveAsForm initial={current.project.name + ' ' + s.copySuffix}
+        folder={home.preferences.folder} busy={busy} onFolder={pickFolder} onSave={(name, folder) =>
+          void run(async () => {
+            playback.stop();
+            select();
+            await openEditor(await window.desktop.saveAs(current.project, name, folder));
+          })} />}
+      {modal.kind === 'recovery' && home.recovery && <div className="grid gap-3 mt-3">
+        <p>{s.recoveryPrompt}</p>
+        <strong>{home.recovery.name}</strong>
+        <div className="flex justify-end gap-2">
+          <button disabled={busy} onClick={() => void run(async () => {
+            await window.desktop.discardRecovery(home.recovery!.file);
+            setHome(await window.desktop.home());
+            setModal(undefined);
+          })}>{s.discard}</button>
+          <button className="primary" disabled={busy} onClick={() => void run(async () => {
+            const recovered = await window.desktop.open(home.recovery!.file, true);
+            if (recovered) await openEditor(recovered);
+          })}>{s.restore}</button>
+        </div>
+      </div>}
+      {modal.kind === 'relink' && current && <div className="grid gap-3 mt-3">
+        <p>{s.relinkHelp}</p>
+        {missing.map((asset) => <div className="flex items-center gap-2" key={asset.id}>
+          <span className="muted flex-1 break-all">{asset.path}</span>
+          <button disabled={busy} onClick={() => void run(async () => {
+            const next = await window.desktop.relink(current.project.id, asset.id);
+            if (!next) return;
+            setCurrent(next);
+            const remaining = await window.desktop.missing(next.project.id);
+            setMissing(remaining);
+            if (!remaining.length) setModal(undefined);
+          })}>{s.locate}</button>
+        </div>)}
+        <button className="justify-self-end" disabled={busy} onClick={() => setModal(undefined)}>{s.skip}</button>
+      </div>}
       {'project' in modal && <ProjectActionForm modal={modal} busy={busy} submit={(name) => void run(async () => {
         const { kind, project } = modal;
         const api = window.desktop;

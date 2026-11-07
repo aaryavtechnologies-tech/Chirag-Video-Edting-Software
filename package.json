@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run tests/unit tests/golden",
-    "e2e": "npm run compile && playwright test"
+    "e2e": "npm run compile && playwright test",
+    "sample": "node samples/create-demo.mjs"
   },
   "dependencies": {
     "@fontsource/bebas-neue": "^5.3.0",
@@ -54,4 +55,3 @@
     "vitest": "^3.2.7"
   }
 }
-

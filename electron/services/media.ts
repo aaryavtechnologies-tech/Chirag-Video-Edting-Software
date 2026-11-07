@@ -10,10 +10,31 @@ import { generateWaveform } from './waveforms';
 export function needsProxy(asset: Asset) {
   const width = asset.width ?? 0;
   const height = asset.height ?? 0;
-  return asset.type === 'video' && (Math.max(width, height) > 1920 || Math.min(width, height) > 1080);
+  return asset.type === 'video' && (Math.max(width, height) > 1920 || Math.min(width, height) > 1080 ||
+    /\.(avi|mkv|mov)$/i.test(asset.path));
 }
 
 let proxyQueue: Promise<void> = Promise.resolve();
+
+export async function populateAssetCache(root: string, asset: Asset, log: (error: unknown) => Promise<void>) {
+  await mkdir(join(root, 'cache'), { recursive: true });
+  if (asset.type !== 'audio') {
+    const thumbPath = `cache/${asset.id}.jpg`;
+    try {
+      await runMediaTool('ffmpeg', [
+        '-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-i', asset.path,
+        '-map', '0:V:0', '-vf', 'scale=320:180:force_original_aspect_ratio=decrease',
+        '-frames:v', '1', '-update', '1', join(root, thumbPath),
+      ]);
+      asset.thumbPath = thumbPath;
+    } catch (error) { await log(error); }
+  }
+  if (asset.hasAudio) {
+    try { asset.waveformPath = await generateWaveform(root, asset); }
+    catch (error) { await log(error); }
+  }
+  return asset;
+}
 
 export async function importMedia(
   project: OpenProject, files: string[],
@@ -28,24 +49,7 @@ export async function importMedia(
     if (!isAbsolute(file) || seen.has(file)) continue;
     seen.add(file);
     try {
-      const asset = await probeAsset(file, randomUUID());
-      if (asset.type !== 'audio') {
-        const thumbPath = `cache/${asset.id}.jpg`;
-        try {
-          await runMediaTool('ffmpeg', [
-            '-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-i', file,
-            '-map', '0:V:0', '-vf', 'scale=320:180:force_original_aspect_ratio=decrease',
-            '-frames:v', '1', '-update', '1', join(root, thumbPath),
-          ]);
-          asset.thumbPath = thumbPath;
-        } catch (error) {
-          await log(error);
-        }
-      }
-      if (asset.hasAudio) {
-        try { asset.waveformPath = await generateWaveform(root, asset); }
-        catch (error) { await log(error); }
-      }
+      const asset = await populateAssetCache(root, await probeAsset(file, randomUUID()), log);
       imported.push(asset);
     } catch (error) {
       failures.push(file);

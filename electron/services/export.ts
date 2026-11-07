@@ -76,7 +76,8 @@ function partialFile(file: string) {
 function videoArgs(settings: ExportSettings, file: string, codec: string) {
   const webm = settings.videoFormat === 'vp9';
   const software = codec === softwareEncoder(settings.videoFormat);
-  const highLevel = settings.videoFormat === 'h264' && settings.width * settings.height >= 8_000_000 && settings.fps >= 50;
+  const pixels = settings.width * settings.height;
+  const highLevel = settings.videoFormat === 'h264' && pixels >= 8_000_000 && pixels <= 8_294_400 && settings.fps >= 50;
   const profile = highLevel && (codec === 'libx264' || codec === 'h264_nvenc' || codec === 'h264_qsv')
     ? ['-profile:v', 'high', '-level:v', '5.2'] : [];
   return ['-map', '[vout]', '-map', '[aout]', '-c:v', codec, '-pix_fmt', 'yuv420p', '-r', String(settings.fps),

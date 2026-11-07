@@ -16,26 +16,27 @@ export function FolderField({ label, folder, onPick }: {
   </label>;
 }
 
-export function NewProjectForm({ preferences, onCreate, onFolder, busy }: {
+export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial }: {
   preferences: Preferences; onCreate(value: NewProject): void;
   onFolder(current: string, change: (folder: string) => void): void; busy: boolean;
+  initial?: ProjectSettings;
 }) {
   const [name, setName] = useState(s.defaultName);
-  const [ratio, setRatio] = useState<keyof typeof ratios | 'custom'>('16:9');
+  const [ratio, setRatio] = useState<keyof typeof ratios | 'custom'>(initial ? 'custom' : '16:9');
   const [resolution, setResolution] = useState<keyof typeof resolutions>('1080p');
-  const [width, setWidth] = useState(1920);
-  const [height, setHeight] = useState(1080);
-  const [fps, setFps] = useState<ProjectSettings['fps']>(30);
-  const [background, setBackground] = useState('#000000');
+  const [width, setWidth] = useState(initial?.width ?? 1920);
+  const [height, setHeight] = useState(initial?.height ?? 1080);
+  const [fps, setFps] = useState<ProjectSettings['fps']>(initial?.fps ?? 30);
+  const [background, setBackground] = useState(initial?.background ?? '#000000');
   const [folder, setFolder] = useState(preferences.folder);
   const dimensions = ratio === 'custom' ? { width, height } : projectDimensions(ratio, resolution);
 
   return <form onSubmit={(event) => {
     event.preventDefault();
-    onCreate({ name, folder, settings: { ...dimensions, fps, background, sampleRate: 48000 } });
+    onCreate({ name, folder, settings: { sampleRate: 48000, ...initial, ...dimensions, fps, background } });
   }}>
     <fieldset disabled={busy}>
-      <label>{s.name}<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} /></label>
+      {!initial && <label>{s.name}<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} /></label>}
       <div className="grid grid-cols-2 gap-4">
         <label>{s.aspect}<select value={ratio} onChange={(e) => setRatio(e.target.value as typeof ratio)}>
           {Object.keys(ratios).map((value) => <option key={value}>{value}</option>)}
@@ -57,8 +58,24 @@ export function NewProjectForm({ preferences, onCreate, onFolder, busy }: {
         <label>{s.background}<input type="color" value={background} onChange={(e) => setBackground(e.target.value)} /></label>
       </div>
       <p className="muted">{dimensions.width} × {dimensions.height}</p>
+      {!initial && <FolderField label={s.location} folder={folder} onPick={() => onFolder(folder, setFolder)} />}
+      <button className="primary justify-self-end">{initial ? s.save : s.create}</button>
+    </fieldset>
+  </form>;
+}
+
+export function SaveAsForm({ initial, folder: defaultFolder, busy, onSave, onFolder }: {
+  initial: string; folder: string; busy: boolean;
+  onSave(name: string, folder: string): void;
+  onFolder(current: string, change: (folder: string) => void): void;
+}) {
+  const [name, setName] = useState(initial);
+  const [folder, setFolder] = useState(defaultFolder);
+  return <form onSubmit={(event) => { event.preventDefault(); onSave(name, folder); }}>
+    <fieldset disabled={busy}>
+      <label>{s.name}<input value={name} required maxLength={120} onChange={(event) => setName(event.target.value)} /></label>
       <FolderField label={s.location} folder={folder} onPick={() => onFolder(folder, setFolder)} />
-      <button className="primary justify-self-end">{s.create}</button>
+      <button className="primary justify-self-end">{s.saveAs}</button>
     </fieldset>
   </form>;
 }

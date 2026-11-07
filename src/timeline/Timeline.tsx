@@ -3,8 +3,8 @@ import { strings as s } from '../lib/strings';
 import { alignFrame, timecode } from '../lib/time';
 import type { Asset, Clip, Project, Track } from '../types/project';
 import {
-  addTrack, deleteClips, findClip, insertAsset, moveClips, projectDuration,
-  removeTrack, reorderTrack, splitClips, trimClip,
+  addTrack, copyClips, deleteClips, findClip, insertAsset, moveClips, pasteClips, projectDuration,
+  removeTrack, reorderTrack, splitClips, trimClip, type ClipboardClip,
 } from './operations';
 import { snapTargets, snappedDelta } from './snapping';
 import { Waveform } from './Waveform';
@@ -44,6 +44,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   const [menu, setMenu] = useState<{ id: string; x: number; y: number }>();
   const pane = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
+  const clipboard = useRef<ClipboardClip[]>([]);
   const fps = project.settings.fps;
   const length = projectDuration(project);
   const tracks = [...project.tracks.filter((track) => track.kind === 'video').reverse(),
@@ -78,10 +79,21 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
-      if (busy || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (busy || event.defaultPrevented || event.altKey) return;
       const target = event.target;
       if (target instanceof HTMLElement &&
         (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
+      if (event.ctrlKey || event.metaKey) {
+        const key = event.key.toLowerCase();
+        if (key === 'c') clipboard.current = copyClips(project, selected);
+        else if (key === 'v' && clipboard.current.length) paste(clipboard.current, playhead);
+        else if (key === 'd') {
+          const items = copyClips(project, selected);
+          if (items.length) paste(items, Math.max(...items.map(({ clip }) => clip.start + clip.duration)));
+        } else return;
+        event.preventDefault();
+        return;
+      }
       switch (event.key.toLowerCase()) {
         case 's': split(); break;
         case 'delete': case 'backspace': erase(event.shiftKey); break;
@@ -129,6 +141,14 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   }
 
   function split() { attempt((draft) => splitClips(draft, selected, playhead, id)); }
+  function paste(items: ClipboardClip[], at: number) {
+    let ids: string[] = [];
+    attempt((draft) => { ids = pasteClips(draft, items, at, id); return ids.length > 0; });
+    if (ids.length) {
+      setSelected(new Set(ids));
+      onSelect(ids[0], items[0].trackId);
+    }
+  }
   function erase(ripple: boolean) {
     if (selected.size) edit((draft) => deleteClips(draft, selected, ripple));
     setSelected(new Set());

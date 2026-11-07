@@ -45,6 +45,7 @@ button:hover:not(:disabled), summary:hover { border-color: #8d86fa; }
 .card-open strong { padding-right: 2rem; }
 .thumbnail { aspect-ratio: 16 / 9; display: grid; place-items: center; background: #242637; border-radius: 8px; container-type: size; }
 .thumbnail span { width: auto; height: auto; max-height: 100cqh; max-width: 100cqw; min-width: min(100cqw, calc(100cqh * 0.5)); min-height: min(100cqh, calc(100cqw * 0.5)); }
+.thumbnail img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
 .actions { position: absolute; top: .9rem; right: .9rem; z-index: 1; }
 .actions summary { list-style: none; padding: 0 .5rem; }
 .actions div { position: absolute; right: 0; top: 100%; width: max-content; display: grid; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
@@ -57,7 +58,9 @@ input, select { min-width: 0; }
 input[type="color"] { width: 100%; height: 2.75rem; }
 .editor { display: grid; grid-template-rows: auto minmax(240px, 1fr) auto; min-height: 100vh; }
 .editor > header, .editor-tracks { padding: 1rem 1.5rem; background: var(--panel); }
-.editor-body { display: grid; grid-template-columns: 230px minmax(0, 1fr) 215px; }
+.editor-body { display: grid; }
+.panel-resizer { cursor: col-resize; background: var(--line); touch-action: none; }
+.panel-resizer:hover, .panel-resizer:focus-visible { background: var(--accent); }
 .inspector { border-left: 1px solid var(--line); background: var(--panel); padding: 1rem; overflow: auto; max-height: 64vh; }
 .inspector fieldset { border-top: 1px solid var(--line); gap: .55rem; font-size: .85rem; }
 .inspector legend { color: var(--muted); padding-right: .5rem; }
