@@ -1,0 +1,22 @@
+export const strings = {
+  app: 'Video Editor', home: 'Home', newProject: 'New Project', openProject: 'Open Project',
+  projectFiles: 'Video Editor projects', recent: 'Recent projects', search: 'Search projects',
+  empty: 'Your projects will appear here. Create one to get started.',
+  noResults: 'No projects match your search.', settings: 'Settings', defaultName: 'Untitled Project',
+  name: 'Project name', aspect: 'Aspect ratio', resolution: 'Resolution', frameRate: 'Frame rate', fps: 'fps',
+  background: 'Background colour', location: 'Save location', browse: 'Browse', cancel: 'Cancel',
+  create: 'Create project', custom: 'Custom', width: 'Width', height: 'Height', save: 'Save',
+  defaultFolder: 'Default save folder', theme: 'Theme', dark: 'Dark', light: 'Light',
+  autosave: 'Autosave interval (seconds)', rename: 'Rename', duplicate: 'Duplicate',
+  delete: 'Delete', reveal: 'Reveal in folder', actions: 'Project actions',
+  deleteConfirm: 'Move this project to the trash?', copySuffix: 'Copy', saved: 'Project saved',
+  emptyEditor: 'Your project is ready.', preview: 'Project preview', tracks: 'Tracks',
+  invalidName: 'Enter a project name that is valid as a folder name.',
+  invalidSize: 'Use even dimensions between 16 and 3840 pixels.',
+  alreadyExists: 'That project folder already exists. Choose another name or location.',
+  invalidProject: 'This file is not a supported Video Editor project.',
+  operationFailed: 'The operation could not be completed. Check the file and try again.',
+  unsupportedVersion: 'This project was saved in an unsupported format version.',
+  trackVideo: 'V', trackAudio: 'A', recentUnavailable: 'This project is no longer in the recent list.',
+};
+

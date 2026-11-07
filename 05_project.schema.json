@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VideoEditorProject",
+  "type": "object",
+  "required": ["version", "id", "name", "settings", "assets", "tracks"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "settings": {
+      "type": "object",
+      "required": ["width", "height", "fps"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 16 },
+        "height": { "type": "integer", "minimum": 16 },
+        "fps": { "type": "number", "enum": [24, 25, 30, 50, 60] },
+        "background": { "type": "string", "default": "#000000" },
+        "sampleRate": { "type": "integer", "default": 48000 }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "path"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "enum": ["video", "image", "audio"] },
+          "path": { "type": "string" },
+          "duration": { "type": "number" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "fps": { "type": "number" },
+          "hasAudio": { "type": "boolean" },
+          "proxyPath": { "type": ["string", "null"] },
+          "thumbPath": { "type": ["string", "null"] },
+          "waveformPath": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "name", "clips"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["video", "audio"] },
+          "name": { "type": "string" },
+          "order": { "type": "integer" },
+          "hidden": { "type": "boolean", "default": false },
+          "locked": { "type": "boolean", "default": false },
+          "muted": { "type": "boolean", "default": false },
+          "solo": { "type": "boolean", "default": false },
+          "volume": { "type": "number", "default": 1 },
+          "clips": { "type": "array", "items": { "$ref": "#/definitions/clip" } }
+        }
+      }
+    },
+    "markers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["time"],
+        "properties": { "time": { "type": "number" }, "label": { "type": "string" } }
+      }
+    },
+    "textPresets": { "type": "array", "items": { "$ref": "#/definitions/textStyle" } }
+  },
+  "definitions": {
+    "transform": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "default": 0.5 },
+        "y": { "type": "number", "default": 0.5 },
+        "scale": { "type": "number", "default": 1 },
+        "rotation": { "type": "number", "default": 0 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+      }
+    },
+    "textStyle": {
+      "type": "object",
+      "properties": {
+        "fontFamily": { "type": "string", "default": "Inter" },
+        "fontSize": { "type": "number", "default": 64 },
+        "bold": { "type": "boolean" },
+        "italic": { "type": "boolean" },
+        "underline": { "type": "boolean" },
+        "uppercase": { "type": "boolean" },
+        "align": { "enum": ["left", "center", "right"], "default": "center" },
+        "lineHeight": { "type": "number", "default": 1.2 },
+        "letterSpacing": { "type": "number", "default": 0 },
+        "fill": {
+          "type": "object",
+          "properties": {
+            "type": { "enum": ["solid", "gradient"] },
+            "color": { "type": "string" },
+            "gradient": {
+              "type": "object",
+              "properties": {
+                "from": { "type": "string" },
+                "to": { "type": "string" },
+                "angle": { "type": "number" }
+              }
+            }
+          }
+        },
+        "stroke": { "type": "object", "properties": { "color": { "type": "string" }, "width": { "type": "number" } } },
+        "shadow": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string" }, "blur": { "type": "number" },
+            "offsetX": { "type": "number" }, "offsetY": { "type": "number" }, "opacity": { "type": "number" }
+          }
+        },
+        "glow": { "type": "object", "properties": { "color": { "type": "string" }, "blur": { "type": "number" } } },
+        "background": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string" }, "opacity": { "type": "number" },
+            "padding": { "type": "number" }, "radius": { "type": "number" }
+          }
+        },
+        "animationIn": { "enum": ["none", "fade", "slideUp", "pop"] },
+        "animationOut": { "enum": ["none", "fade", "slideDown"] },
+        "animationDuration": { "type": "number", "default": 0.4 }
+      }
+    },
+    "clip": {
+      "type": "object",
+      "required": ["id", "type", "start", "duration"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["video", "image", "text", "audio"] },
+        "assetId": { "type": "string" },
+        "start": { "type": "number", "minimum": 0 },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "sourceIn": { "type": "number", "default": 0 },
+        "sourceOut": { "type": "number" },
+        "speed": { "type": "number", "minimum": 0.25, "maximum": 4, "default": 1 },
+        "volume": { "type": "number", "minimum": 0, "maximum": 2, "default": 1 },
+        "muted": { "type": "boolean", "default": false },
+        "fadeIn": { "type": "number", "default": 0 },
+        "fadeOut": { "type": "number", "default": 0 },
+        "transform": { "$ref": "#/definitions/transform" },
+        "fit": { "enum": ["contain", "cover"], "default": "contain" },
+        "text": { "type": "string" },
+        "style": { "$ref": "#/definitions/textStyle" },
+        "linkedClipId": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

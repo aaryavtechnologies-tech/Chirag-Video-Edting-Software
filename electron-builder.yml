@@ -1,0 +1,12 @@
+appId: com.aaryav.videoeditor
+productName: Video Editor
+directories:
+  output: release
+files:
+  - out/**/*
+win:
+  target: nsis
+mac:
+  target: dmg
+linux:
+  target: AppImage
