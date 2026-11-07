@@ -2,26 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-  --surface: #10111a;
-  --panel: #191b27;
-  --line: #333649;
-  --ink: #f0f1fb;
-  --muted: #a9acc1;
-  --accent: #5147d7;
-  --error: #ffadb7;
-}
-:root[data-theme="light"] {
-  color-scheme: light;
-  --surface: #f4f5fb;
-  --panel: #ffffff;
-  --line: #c6c9dd;
-  --ink: #17182a;
-  --muted: #535671;
-  --error: #a51d39;
-}
-body { background: var(--surface); color: var(--ink); }
+body { font-family: var(--ui-font); background: var(--surface); color: var(--ink); }
 button, input, select, summary {
   border: 1px solid var(--line);
   background: var(--panel);
@@ -56,8 +37,8 @@ fieldset { display: grid; gap: 1rem; margin-top: 1rem; }
 label { display: grid; gap: .35rem; min-width: 0; }
 input, select { min-width: 0; }
 input[type="color"] { width: 100%; height: 2.75rem; }
-.editor { display: grid; grid-template-rows: auto minmax(240px, 1fr) auto; min-height: 100vh; }
-.editor > header, .editor-tracks { padding: 1rem 1.5rem; background: var(--panel); }
+.editor { display: grid; grid-template-rows: auto minmax(240px, 1fr) auto auto; min-height: 100vh; }
+.editor > header, .editor-tracks { padding: .6rem .9rem; background: var(--panel); }
 .editor-body { display: grid; }
 .panel-resizer { cursor: col-resize; background: var(--line); touch-action: none; }
 .panel-resizer:hover, .panel-resizer:focus-visible { background: var(--accent); }

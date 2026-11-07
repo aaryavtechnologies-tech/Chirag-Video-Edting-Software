@@ -32,11 +32,13 @@ interface Props {
   busy: boolean;
   onSelect(clipId?: string, trackId?: string): void;
   focusedClip?: string;
+  onZoom?(percent: number): void;
 }
 
-export function Timeline({ project, edit, playhead, seek, busy, onSelect, focusedClip }: Props) {
+export function Timeline({ project, edit, playhead, seek, busy, onSelect, focusedClip, onZoom }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(80);
+  useEffect(() => { onZoom?.(Math.round(zoom / 80 * 100)); }, [zoom, onZoom]);
   const [snap, setSnap] = useState(true);
   const [gesture, setGesture] = useState<Gesture>();
   const [viewport, setViewport] = useState({ width: 800, left: 0 });

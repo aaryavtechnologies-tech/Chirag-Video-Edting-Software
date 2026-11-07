@@ -18,6 +18,11 @@ test('creates a 4K60 project and reopens it from Home', async ({}, testInfo) => 
     await page.getByLabel(s.frameRate).selectOption('60');
     await page.getByRole('button', { name: s.create }).click();
     await expect(page.getByRole('heading', { name: 'Sample' })).toBeVisible();
+    await page.keyboard.press('Control+k');
+    await page.getByRole('textbox', { name: s.searchActions }).fill(s.toggleTheme);
+    await page.getByRole('textbox', { name: s.searchActions }).press('Enter');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.getByLabel(s.editorStatus)).toContainText(s.autosaveEvery);
     await page.getByRole('button', { name: s.save, exact: true }).click();
     await expect(page.getByRole('status')).toHaveText(s.saved);
     await page.getByRole('button', { name: s.home, exact: true }).click();
@@ -126,8 +131,13 @@ test('recovers an autosaved edit after an interrupted session', async ({}, testI
     await page.getByRole('button', { name: s.title, exact: true }).click();
     const checkpoint = join(projects, s.defaultName, s.defaultName + '.autosave.vedit');
     await expect.poll(async () => readFile(checkpoint, 'utf8').catch(() => ''), { timeout: 12_000 }).toContain('"text": "Title"');
-    const ended = app.waitForEvent('close', { timeout: 7000 });
-    await app.evaluate(({ app }) => { setTimeout(() => app.exit(0), 50); });
+    const ended = app.waitForEvent('close', { timeout: 15_000 });
+    const pid = await app.evaluate(() => process.pid);
+    if (process.platform === 'win32') {
+      await promisify(execFile)('taskkill.exe', ['/PID', String(pid), '/T', '/F']);
+    } else {
+      process.kill(pid, 'SIGKILL');
+    }
     await ended;
   } finally {
     await app.close().catch(() => undefined);

@@ -6,12 +6,13 @@ import { assetDragType } from '../timeline/Timeline';
 
 const filters = ['all', 'video', 'image', 'audio'] as const;
 
-export function MediaBin({ assets, proxies, busy, importFiles }: {
+export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
   assets: Asset[]; proxies: Record<string, MediaProgress>; busy: boolean;
   importFiles(files?: string[]): void;
+  audioOnly?: boolean;
 }) {
   const [filter, setFilter] = useState<typeof filters[number]>('all');
-  const shown = assets.filter((asset) => filter === 'all' || asset.type === filter);
+  const shown = assets.filter((asset) => audioOnly ? asset.type === 'audio' || asset.hasAudio : filter === 'all' || asset.type === filter);
 
   return <section className="media-bin" onDragOver={(event) => {
     if (event.dataTransfer.types.includes('Files')) event.preventDefault();
@@ -22,14 +23,14 @@ export function MediaBin({ assets, proxies, busy, importFiles }: {
     if (files.length) importFiles(files);
   }}>
     <header className="media-header">
-      <h2 className="font-semibold">{s.media}</h2>
+      <h2 className="font-semibold">{audioOnly ? s.audio : s.media}</h2>
       <button disabled={busy} className="primary" onClick={() => importFiles()}>{s.importMedia}</button>
     </header>
-    <label>{s.filterMedia}
+    {!audioOnly && <label>{s.filterMedia}
       <select value={filter} onChange={(event) => setFilter(filters[event.target.selectedIndex])}>
         {filters.map((kind) => <option key={kind} value={kind}>{s[kind]}</option>)}
       </select>
-    </label>
+    </label>}
     {!shown.length && <p className="muted mt-3">{assets.length ? s.noMediaMatches : s.mediaEmpty}</p>}
     <ul className="media-grid">
       {shown.map((asset) => {

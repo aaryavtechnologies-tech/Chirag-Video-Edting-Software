@@ -1,4 +1,9 @@
 export const strings = {
+  commandPalette: 'Command palette', searchActions: 'Search editor actions', noActions: 'No matching actions.',
+  toggleTheme: 'Switch light or dark theme', editorDock: 'Editor tools', editorStatus: 'Editor status',
+  frame: 'Frame', backgroundIdle: 'Background tasks idle', autosaveEvery: 'Autosave every',
+  captions: 'Captions', shapes: 'Shapes', effects: 'Effects', transitions: 'Transitions', templates: 'Templates',
+  dockPending: 'This tool is not available yet.', editSettings: 'Edit settings',
   app: 'Video Editor', home: 'Home', newProject: 'New Project', openProject: 'Open Project',
   projectFiles: 'Video Editor projects', recent: 'Recent projects', search: 'Search projects',
   empty: 'Your projects will appear here. Create one to get started.',

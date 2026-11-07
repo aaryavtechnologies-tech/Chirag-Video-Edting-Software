@@ -1,5 +1,7 @@
 # Decisions
 
+- P1 connects the new rail to Media, Audio, Text, and Templates. Caption, shape, effect, and transition entries reserve their places in the shell until their tools are available.
+
 - The text update extends the existing animation enums in the project schema. Existing projects keep their animation settings. The new enum values require Video Editor 0.2.0 or later.
 
 - M1 uses the supplied JSON Schema as the file contract. Optional defaults remain optional on load, and additional fields survive a save.

@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client';
 import { strings } from '../lib/strings';
 import { App } from './App';
 import './styles.css';
+import '../design-system/tokens.css';
+import './editorChrome.css';
 import './fonts.css';
 
 document.title = strings.app;

@@ -23,13 +23,15 @@ interface Props {
   volume: number; setVolume(value: number): void; peak: number;
   selected?: string; onSelect(clipId?: string, trackId?: string): void;
   snapshot: MutableRefObject<(() => string | undefined) | undefined>;
+  onQuality?(quality: Quality): void;
 }
 
-export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot }: Props) {
+export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot, onQuality }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
   const [quality, setQuality] = useState<Quality>('half');
+  useEffect(() => { onQuality?.(quality); }, [quality, onQuality]);
   const [inline, setInline] = useState<string>();
   const texts = useRef(new Map<string, { key: string; canvas: HTMLCanvasElement }>());
   const [status, setStatus] = useState('');

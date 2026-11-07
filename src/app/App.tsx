@@ -15,11 +15,12 @@ import { AudioInspector } from '../panels/Inspector/AudioInspector';
 import { TextInspector } from '../panels/Inspector/TextInspector';
 import { TextPanel } from '../panels/TextPanel';
 import { textKinds } from '../lib/textPresets';
-import { alignFrame } from '../lib/time';
+import { alignFrame, timecode, timeToFrame } from '../lib/time';
 import type { Asset, Clip, Project } from '../types/project';
 import type { OpenProject } from '../types/desktop';
 import { ExportDialog } from '../export/ExportDialog';
 import { PanelResizer } from './PanelResizer';
+import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, type Dock } from './EditorChrome';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } | ProjectDialog;
@@ -39,7 +40,10 @@ export function App() {
   const [volume, setVolume] = useState(1);
   const [peak, setPeak] = useState(0);
   const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
-  const [tab, setTab] = useState<'media' | 'text'>('media');
+  const [tab, setTab] = useState<Dock>('media');
+  const [palette, setPalette] = useState(false);
+  const [timelineZoom, setTimelineZoom] = useState(100);
+  const [previewQuality, setPreviewQuality] = useState<'full' | 'half' | 'quarter'>('half');
   const [exportOpen, setExportOpen] = useState(false);
   const [missing, setMissing] = useState<Asset[]>([]);
   const [mediaWidth, setMediaWidth] = useState(230);
@@ -137,6 +141,13 @@ export function App() {
     });
   }
 
+  function toggleTheme() {
+    if (!home || busy) return;
+    void run(async () => setHome(await window.desktop.preferences({
+      ...home.preferences, theme: home.preferences.theme === 'dark' ? 'light' : 'dark',
+    })));
+  }
+
   function stepHistory(action: 'undo' | 'redo') {
     if (!current || busy || (action === 'undo' ? !past.length : !future.length)) return;
     void run(async () => {
@@ -170,7 +181,7 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if (!current || exportOpen || modal || event.defaultPrevented) return;
+      if (!current || exportOpen || modal || palette || event.defaultPrevented) return;
       const target = event.target;
       if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey &&
         (!(target instanceof HTMLElement) ||
@@ -187,6 +198,7 @@ export function App() {
       }
       if (!(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
+      if (key === 'k') { event.preventDefault(); setPalette(true); }
       if (key === 's') {
         event.preventDefault();
         if (event.shiftKey) setModal({ kind: 'saveAs' });
@@ -205,9 +217,10 @@ export function App() {
 
   const message = error && <p className="error" role="alert">{error}</p>;
   const title = modal?.kind === 'new' ? s.newProject : modal ? s[modal.kind] : '';
-  return <>
+  const proxyTask = Object.values(proxies).find((update) => update.percent < 100 && !update.failed);
+  return <EditorTooltips>
     {current ? <main className="editor">
-      <header className="flex flex-wrap items-center gap-4">
+      <header className="editor-toolbar">
         <button disabled={busy} onClick={() => void run(async () => {
           await window.desktop.save(current.project, snapshot.current?.());
           setHome(await window.desktop.home());
@@ -224,29 +237,42 @@ export function App() {
         <button disabled={busy} onClick={() => setModal({ kind: 'saveAs' })}>{s.saveAs}</button>
         {missing.length > 0 && <button disabled={busy} onClick={() => setModal({ kind: 'relink' })}>{s.relink}</button>}
         <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
+        <ChromeActions theme={home?.preferences.theme ?? 'dark'} toggleTheme={toggleTheme} openPalette={() => setPalette(true)} />
         <button className="primary" disabled={busy || duration <= 0}
           onClick={openExport}>{s.export}</button>
       </header>
       <div className="editor-body" style={{ gridTemplateColumns: `${mediaWidth}px 5px minmax(0, 1fr) 5px ${inspectorWidth}px` }}>
-        <div className="editor-sidebar">
-          <div className="editor-tabs">
-            <button aria-pressed={tab === 'media'} onClick={() => setTab('media')}>{s.media}</button>
-            <button aria-pressed={tab === 'text'} onClick={() => setTab('text')}>{s.text}</button>
-          </div>
-          {tab === 'media' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy} importFiles={importFiles} /> :
-            <TextPanel add={addText} busy={busy} />}
-        </div>
+        <EditorDock active={tab} select={setTab}>
+          {tab === 'media' || tab === 'audio' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy}
+            audioOnly={tab === 'audio'} importFiles={importFiles} /> :
+            tab === 'text' || tab === 'templates' ? <TextPanel add={addText} busy={busy} /> :
+            <section className="dock-empty"><h2>{s[tab]}</h2><p className="muted">{s.dockPending}</p></section>}
+        </EditorDock>
         <PanelResizer width={mediaWidth} resize={(width) => setMediaWidth(clampPanel(width))} />
         <PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
           volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select}
-          snapshot={snapshot} />
+          snapshot={snapshot} onQuality={setPreviewQuality} />
         <PanelResizer width={inspectorWidth} right resize={(width) => setInspectorWidth(clampPanel(width))} />
-        {inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
+        {!selection.clipId && !selection.trackId ? <aside className="inspector">
+          <h2 className="font-semibold">{s.projectSettings}</h2>
+          <p className="muted my-3">{current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}</p>
+          <p className="muted">{s.tracks} {current.project.tracks.length} · {s.media} {current.project.assets.length}</p>
+          <button className="mt-3" onClick={() => setModal({ kind: 'projectSettings' })}>{s.editSettings}</button>
+        </aside> : inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
           previewAnimation={() => playback.previewRange(inspected.start, inspected.start + inspected.duration)} /> :
           <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
       </div>
       <Timeline key={current.project.id} project={current.project} edit={edit}
-        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal} onSelect={select} focusedClip={selection.clipId} />
+        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal || palette}
+        onSelect={select} focusedClip={selection.clipId} onZoom={setTimelineZoom} />
+      <footer className="editor-status" aria-label={s.editorStatus}>
+        <span>{timecode(playhead, current.project.settings.fps)}</span>
+        <span>{s.frame} {timeToFrame(playhead, current.project.settings.fps)}</span>
+        <span>{s.zoom} {timelineZoom}%</span>
+        <span>{s.quality} · {s[previewQuality]}</span>
+        <span>{proxyTask ? `${s.proxyProgress} ${proxyTask.percent}%` : s.backgroundIdle}</span>
+        <span>{s.autosaveEvery} {home?.preferences.autosave ?? 30}{s.seconds}</span>
+      </footer>
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}
@@ -260,6 +286,17 @@ export function App() {
       }} />}
     {!modal && message}
     {notice && <p className="status" role="status">{notice}</p>}
+    {current && palette && <CommandPalette close={() => setPalette(false)} actions={[
+      { label: s.save, shortcut: 'Ctrl+S', disabled: busy, run: save },
+      { label: s.saveAs, shortcut: 'Ctrl+Shift+S', run: () => setModal({ kind: 'saveAs' }) },
+      { label: s.export, shortcut: 'Ctrl+E', disabled: busy || !duration, run: openExport },
+      { label: s.undo, shortcut: 'Ctrl+Z', disabled: !past.length, run: () => stepHistory('undo') },
+      { label: s.redo, shortcut: 'Ctrl+Shift+Z', disabled: !future.length, run: () => stepHistory('redo') },
+      { label: s.importMedia, disabled: busy, run: () => importFiles() },
+      { label: s.title, shortcut: 'T', run: () => { setTab('text'); addText('title'); } },
+      { label: s.projectSettings, run: () => setModal({ kind: 'projectSettings' }) },
+      { label: s.toggleTheme, run: toggleTheme },
+    ]} />}
     {current && exportOpen && <ExportDialog project={current.project} volume={volume}
       save={async () => { acceptSaved(await window.desktop.save(current.project, snapshot.current?.())); }}
       onCancelled={() => { setExportOpen(false); setNotice(s.exportCancelled); }}
@@ -324,7 +361,7 @@ export function App() {
       })} />}
       {message}
     </Modal>}
-  </>;
+  </EditorTooltips>;
 }
 
 function ProjectActionForm({ modal, busy, submit }: {
