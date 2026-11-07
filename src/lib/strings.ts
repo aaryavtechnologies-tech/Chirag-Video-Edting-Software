@@ -30,6 +30,12 @@ export const strings = {
   captionEdited: 'Edited', captionText: 'Caption text', mergeNext: 'Merge with next',
   captionTemplate: 'Caption template', speaker: 'Speaker', clipDuration: 'Duration (seconds)',
   wordTimings: 'Word timings', resetTemplate: 'Reset to template', saveTemplate: 'Save as template',
+  captionFiles: 'Import / Export', captionFile: 'Caption file', captionPaste: 'Paste caption text',
+  invalidCaptions: 'No readable captions were found.', wordsPerSecond: 'Words per second',
+  targetTrack: 'Target track', importOffset: 'Offset (seconds)', sourceFps: 'Source FPS (0 to keep timestamps)',
+  trackDefault: 'Track default', splitLongCaptions: 'Split long captions by template limits',
+  importCaptions: 'Import captions', exportCaptions: 'Export captions', captionExportFormat: 'Caption export format',
+  burnCaptions: 'Burn captions into video', captionSidecar: 'Export captions as a separate SRT file only',
   wordEffect: 'Word effect', wordEffectNames: {
     none: 'None', highlightColor: 'Active word highlight', scalePop: 'Active word pop',
     pillSlide: 'Sliding pill', karaokeFill: 'Karaoke fill', underlineSweep: 'Underline sweep',

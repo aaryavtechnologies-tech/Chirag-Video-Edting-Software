@@ -49,7 +49,7 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
     mode: 'video', videoFormat: 'h264', audioFormat: 'mp3', audioBitrate: 320,
     width: even(project.settings.width), height: even(project.settings.height),
     fps: project.settings.fps, bitrate: suggestedBitrate(project.settings.width, project.settings.height, project.settings.fps),
-    volume, hardware: true, openFolder: false,
+    volume, hardware: true, openFolder: false, burnCaptions: true,
   });
   const [resolution, setResolution] = useState('project');
   const [quality, setQuality] = useState<keyof typeof qualityFactors>('high');
@@ -190,6 +190,11 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
             {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
           </select></label>
         </div>}
+        {value.mode !== 'audio' && project.captionTracks?.some((track) => !track.hidden && track.segments.length) &&
+          <label>{s.captions}<select value={value.burnCaptions === false ? 'sidecar' : 'burn'}
+            onChange={(event) => update({ burnCaptions: event.target.value === 'burn' })}>
+            <option value="burn">{s.burnCaptions}</option><option value="sidecar">{s.captionSidecar}</option>
+          </select></label>}
         <label className="toggle-field"><input type="checkbox" checked={value.openFolder}
           onChange={(event) => update({ openFolder: event.target.checked })} />{s.openFolderAfter}</label>
         <p className="muted">{s.estimatedSize} {Math.ceil(estimate / 1_000_000)} {s.megabytes}</p>

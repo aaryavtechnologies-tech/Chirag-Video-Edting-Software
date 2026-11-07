@@ -11,6 +11,7 @@ import { exportSettingsSchema, videoExtension, type ExportProgress, type ExportR
 import type { Project } from '../../src/types/project';
 import { runMediaTool } from './ffmpeg';
 import { selectEncoder, softwareEncoder } from './encoders';
+import { exportCaptions } from '../../src/captions/exporters';
 
 const rasterSchema = z.array(z.object({ id: z.string(), png: z.string().max(80_000_000) })).max(500);
 const reportSchema = z.object({
@@ -101,8 +102,14 @@ export async function exportProject(
   const settings = exportSettingsSchema.parse(value);
   if (!isAbsolute(selected) || !extname(selected)) throw new Error('Invalid output path');
   const outputs = outputFiles(selected, settings);
+  const captions = settings.burnCaptions === false && outputs.video
+    ? (project.captionTracks ?? []).filter((track) => !track.hidden).flatMap((track) => track.segments)
+    : [];
+  const subtitle = captions.length ? join(dirname(selected), parse(selected).name + '.srt') : undefined;
+  if (subtitle) outputs.all.push(subtitle);
   const tempVideo = outputs.video && partialFile(outputs.video);
   const tempAudio = outputs.audio && partialFile(outputs.audio);
+  const tempSubtitle = subtitle && partialFile(subtitle);
   const directory = await mkdtemp(join(tmpdir(), 'video-editor-export-'));
   const finalized: string[] = [];
   try {
@@ -154,8 +161,18 @@ export async function exportProject(
     report({ percent: 99, elapsed: elapsed(), verifying: true });
     if (tempVideo) await verifyExport(tempVideo, duration, settings);
     if (tempAudio) await verifyExport(tempAudio, duration);
+    if (tempSubtitle) {
+      const begin = settings.range?.start ?? 0;
+      const finish = begin + duration;
+      const trimmed = captions.flatMap((segment) => {
+        const start = Math.max(begin, segment.start);
+        const end = Math.min(finish, segment.start + segment.duration);
+        return end > start ? [{ ...segment, start: start - begin, duration: end - start }] : [];
+      });
+      await writeFile(tempSubtitle, exportCaptions(trimmed, 'srt'), { flag: 'wx' });
+    }
     signal.throwIfAborted();
-    for (const [temp, destination] of [[tempVideo, outputs.video], [tempAudio, outputs.audio]]) {
+    for (const [temp, destination] of [[tempVideo, outputs.video], [tempAudio, outputs.audio], [tempSubtitle, subtitle]]) {
       if (!temp || !destination) continue;
       // Link in the same folder atomically and refuse to overwrite an existing destination.
       try { await link(temp, destination); }
@@ -174,6 +191,6 @@ export async function exportProject(
     throw error;
   } finally {
     await Promise.allSettled([rm(directory, { recursive: true, force: true }),
-      ...[tempVideo, tempAudio].flatMap((file) => file ? [rm(file, { force: true })] : [])]);
+      ...[tempVideo, tempAudio, tempSubtitle].flatMap((file) => file ? [rm(file, { force: true })] : [])]);
   }
 }

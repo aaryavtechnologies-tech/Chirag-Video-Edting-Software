@@ -148,8 +148,11 @@ test('creates a caption track and edits a segment override', async ({}, testInfo
     await page.getByRole('button', { name: s.newProject }).click();
     await page.getByRole('button', { name: s.create }).click();
     await page.getByRole('button', { name: s.captions, exact: true }).click();
-    await page.getByRole('button', { name: s.addCaption, exact: true }).click();
+    await page.getByRole('button', { name: s.captionFiles, exact: true }).click();
+    await page.getByLabel(s.captionPaste).fill('नमस्ते दुनिया');
+    await page.getByRole('button', { name: s.importCaptions, exact: true }).click();
     await expect(page.locator('.caption-clip')).toHaveCount(1);
+    await page.locator('.caption-clip').click();
     await page.getByLabel(s.wordEffect).selectOption('karaokeFill');
     await page.getByRole('button', { name: s.save, exact: true }).click();
     await expect(page.getByRole('status')).toHaveText(s.saved);

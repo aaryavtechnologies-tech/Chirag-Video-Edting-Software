@@ -13,6 +13,7 @@ export const exportSettingsSchema = z.object({
   hardware: z.boolean(),
   range: z.object({ start: z.number().finite().min(0), end: z.number().finite().positive() }).optional(),
   openFolder: z.boolean(),
+  burnCaptions: z.boolean().optional(),
 });
 
 export type ExportSettings = z.infer<typeof exportSettingsSchema>;

@@ -7,6 +7,7 @@ import { addCaptionTrack, captionTrack, mergeCaption, reflowCaption, setCaptionT
 import { applyTemplate, builtInTemplates, getTemplate } from './templates';
 import { estimateWords } from './wordTiming';
 import type { CaptionTemplate } from './types';
+import { CaptionFiles } from './CaptionFiles';
 
 type Edit = (recipe: (draft: Project) => void) => void;
 
@@ -24,7 +25,7 @@ export function CaptionsPanel({ project, edit, trackId, selected, playhead, sele
   project: Project; edit: Edit; trackId?: string; selected: ReadonlySet<string>; playhead: number;
   select(clipId?: string, trackId?: string, extend?: boolean): void; seek(time: number): void;
 }) {
-  const [tab, setTab] = useState<'templates' | 'transcript'>('templates');
+  const [tab, setTab] = useState<'templates' | 'transcript' | 'files'>('templates');
   const [category, setCategory] = useState<string>('all');
   const [templateId, setTemplateId] = useState<string>();
   const [reset, setReset] = useState(false);
@@ -72,7 +73,9 @@ export function CaptionsPanel({ project, edit, trackId, selected, playhead, sele
     <div className="inspector-tabs">
       <button aria-pressed={tab === 'templates'} onClick={() => setTab('templates')}>{s.templates}</button>
       <button aria-pressed={tab === 'transcript'} onClick={() => setTab('transcript')}>{s.transcript}</button>
+      <button aria-pressed={tab === 'files'} onClick={() => setTab('files')}>{s.captionFiles}</button>
     </div>
+    {tab === 'files' && <CaptionFiles project={project} track={track} edit={edit} select={select} />}
     {tab === 'templates' && <>
       <label className="my-2">{s.category}<select value={category} onChange={(event) => setCategory(event.target.value)}>
         <option value="all">{s.all}</option>{captionCategories.map((item) => <option key={item}>{item}</option>)}
