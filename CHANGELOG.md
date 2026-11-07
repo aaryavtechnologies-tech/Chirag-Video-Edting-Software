@@ -1,5 +1,9 @@
 # Changelog
 
+## M6
+
+- Added text clips, on-canvas editing, bundled fonts, style presets, and a shared Canvas text rasterizer.
+
 ## M5
 
 - Added multi-track Web Audio mixing, track and clip controls, speed, detach audio, waveform caching, and a master meter.

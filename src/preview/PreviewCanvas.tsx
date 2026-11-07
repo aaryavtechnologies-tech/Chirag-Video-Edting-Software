@@ -7,6 +7,8 @@ import { activeLayers, clipTransform, drawLayer, layerSize, type Transform } fro
 import { drawHandles, hitHandle, type Handle } from './handles';
 import { MediaElements } from './mediaElements';
 import type { usePlayback } from './usePlayback';
+import { animateText, loadTextFont, rasterizeText } from '../export/textRasterizer';
+import type { Clip } from '../types/project';
 
 type Quality = 'full' | 'half' | 'quarter';
 const qualityDivisors = { full: 1, half: 2, quarter: 4 } as const;
@@ -18,14 +20,16 @@ interface Props {
   playback: ReturnType<typeof usePlayback>;
   edit(recipe: (draft: Project) => void): void;
   volume: number; setVolume(value: number): void; peak: number;
+  selected?: string; onSelect(clipId?: string, trackId?: string): void;
 }
 
-export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak }: Props) {
+export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
   const [quality, setQuality] = useState<Quality>('half');
-  const [selected, setSelected] = useState<string>();
+  const [inline, setInline] = useState<string>();
+  const texts = useRef(new Map<string, { key: string; canvas: HTMLCanvasElement }>());
   const [status, setStatus] = useState('');
   const [drag, setDrag] = useState<Drag>();
   const { playhead, playing, seek, toggle, loop, setLoop } = playback;
@@ -35,6 +39,29 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
   const divisor = qualityDivisors[quality];
   const canvasWidth = Math.round(width / divisor);
   const canvasHeight = Math.round(height / divisor);
+
+  function textSurface(clip: Clip) {
+    const key = JSON.stringify([clip.text, clip.style, divisor]);
+    const cached = texts.current.get(clip.id);
+    if (cached?.key === key) return cached.canvas;
+    const surface = rasterizeText(clip.text ?? '', clip.style, 1 / divisor);
+    if (texts.current.size >= 16) texts.current.delete(texts.current.keys().next().value!);
+    texts.current.set(clip.id, { key, canvas: surface });
+    void loadTextFont(clip.text ?? '', clip.style).then(() => {
+      const current = texts.current.get(clip.id);
+      if (current?.canvas === surface) current.canvas = rasterizeText(clip.text ?? '', clip.style, 1 / divisor);
+      redraw.current();
+    });
+    return surface;
+  }
+
+  function sizeFor(clip: Clip) {
+    if (clip.type === 'text') {
+      const surface = textSurface(clip);
+      return { width: surface.width, height: surface.height };
+    }
+    return layerSize(clip, assets.get(clip.assetId ?? ''), canvasWidth, canvasHeight);
+  }
 
   useEffect(() => {
     const current = media.current;
@@ -54,7 +81,13 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
       let missing = false;
       let loading = false;
       for (const clip of layers) {
-        if (clip.type === 'text' || clip.type === 'audio') continue;
+        if (clip.type === 'audio') continue;
+        const transform = drag?.clipId === clip.id ? drag.next : clipTransform(clip);
+        if (clip.type === 'text') {
+          const text = textSurface(clip);
+          if (clip.id !== inline) drawLayer(ctx, text, clip, playhead, text, animateText(clip, transform, playhead));
+          continue;
+        }
         const asset = assets.get(clip.assetId ?? '');
         if (!asset) { missing = true; continue; }
         active.add(clip.id);
@@ -75,7 +108,6 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
           }
           if (source.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || source.seeking) { loading = true; continue; }
         } else if (!source.complete || !source.naturalWidth) { loading = true; continue; }
-        const transform = drag?.clipId === clip.id ? drag.next : clipTransform(clip);
         const size = layerSize(clip, asset, canvasWidth, canvasHeight);
         drawLayer(ctx, source, clip, playhead, size, transform);
       }
@@ -83,9 +115,9 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
       const current = layers.find((clip) => clip.id === selected);
       const unit = element.clientWidth ? canvasWidth / element.clientWidth : 1;
       if (current && !playing) {
-        const asset = assets.get(current.assetId ?? '');
         const transform = drag?.clipId === current.id ? drag.next : clipTransform(current);
-        drawHandles(ctx, layerSize(current, asset, canvasWidth, canvasHeight), transform, unit);
+        if (current.id !== inline) drawHandles(ctx, sizeFor(current),
+          current.type === 'text' ? animateText(current, transform, playhead) : transform, unit);
       }
       if (drag && !playing) {
         ctx.strokeStyle = '#f9b257';
@@ -105,7 +137,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
     }
     redraw.current = draw;
     draw();
-  }, [assets, project, playhead, playing, quality, background, canvasWidth, canvasHeight, selected, drag]);
+  });
 
   function point(event: PointerEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -122,16 +154,18 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
     layers.sort((a, b) => Number(b.id === selected) - Number(a.id === selected));
     for (const clip of layers) {
       const initial = clipTransform(clip);
-      const size = layerSize(clip, assets.get(clip.assetId ?? ''), canvasWidth, canvasHeight);
-      const handle = hitHandle(at, initial, bounds, size, unit, clip.id === selected);
+      const size = sizeFor(clip);
+      const visible = clip.type === 'text' ? animateText(clip, initial, playhead) : initial;
+      const handle = hitHandle(at, visible, bounds, size, unit, clip.id === selected);
       if (!handle) continue;
-      setSelected(clip.id);
-      if (findClip(project, clip.id)?.track.locked) return;
+      const track = findClip(project, clip.id)?.track;
+      onSelect(clip.id, track?.id);
+      if (track?.locked) return;
       event.currentTarget.setPointerCapture(event.pointerId);
       setDrag({ clipId: clip.id, start: at, handle, initial, next: initial, guides: { x: -1, y: -1 } });
       return;
     }
-    setSelected(undefined);
+    onSelect();
   }
 
   function move(event: PointerEvent<HTMLCanvasElement>) {
@@ -172,11 +206,30 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
 
   const step = (direction: number) =>
     seek(Math.min(duration, Math.max(0, alignFrame(playhead + direction / fps, fps))));
+  const editing = inline && findClip(project, inline)?.clip;
 
   return <div className="editor-stage">
     <div className="preview-surface" style={{ aspectRatio: width / height, width: `min(100%, ${45 * width / height}vh)` }}>
       <canvas ref={canvas} aria-label={s.preview} width={canvasWidth} height={canvasHeight}
-        onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => setDrag(undefined)} />
+        onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => setDrag(undefined)}
+        onDoubleClick={() => {
+          const target = selected && findClip(project, selected);
+          if (target && target.clip.type === 'text' && !target.track.locked) setInline(target.clip.id);
+        }} />
+      {editing && <textarea className="inline-text" aria-label={s.inlineText} defaultValue={editing.text}
+        style={{ left: `${clipTransform(editing).x * 100}%`, top: `${clipTransform(editing).y * 100}%` }}
+        autoFocus rows={3} maxLength={5000} onBlur={(event) => {
+          const text = event.target.value;
+          edit((draft) => {
+            const target = findClip(draft, editing.id);
+            if (target && !target.track.locked) target.clip.text = text;
+          });
+          setInline(undefined);
+        }} onKeyDown={(event) => {
+          if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+            event.currentTarget.blur();
+          }
+        }} />}
       {status && <span className="preview-status" role="status">{status}</span>}
     </div>
     <div className="transport">

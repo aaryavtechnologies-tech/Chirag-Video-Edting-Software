@@ -7,11 +7,16 @@ import { Modal } from './Modal';
 import { NewProjectForm, PreferencesForm } from './ProjectForms';
 import { MediaBin } from '../panels/MediaBin';
 import { Timeline } from '../timeline/Timeline';
-import { projectDuration } from '../timeline/operations';
+import { addTrack, findClip, overlaps, projectDuration } from '../timeline/operations';
 import { PreviewCanvas } from '../preview/PreviewCanvas';
 import { usePlayback } from '../preview/usePlayback';
 import { AudioEngine } from '../preview/audioEngine';
 import { AudioInspector } from '../panels/Inspector/AudioInspector';
+import { TextInspector } from '../panels/Inspector/TextInspector';
+import { TextPanel } from '../panels/TextPanel';
+import { textKinds } from '../lib/textPresets';
+import { alignFrame } from '../lib/time';
+import type { Clip } from '../types/project';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' } | ProjectDialog;
@@ -28,9 +33,28 @@ export function App() {
   const [volume, setVolume] = useState(1);
   const [peak, setPeak] = useState(0);
   const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
+  const [tab, setTab] = useState<'media' | 'text'>('media');
   const select = useCallback((clipId?: string, trackId?: string) => setSelection({ clipId, trackId }), []);
   const project = current?.project;
   const { playing, playhead } = playback;
+  const inspected = project && selection.clipId ? findClip(project, selection.clipId)?.clip : undefined;
+
+  function addText(kind: keyof typeof textKinds) {
+    if (!project || busy) return;
+    const preset = textKinds[kind];
+    const clip: Clip = { id: crypto.randomUUID(), type: 'text',
+      start: alignFrame(playhead, project.settings.fps), duration: 3, text: s[kind],
+      style: { ...preset.style }, transform: { y: preset.y } };
+    let trackId: string | undefined;
+    edit((draft) => {
+      const track = [...draft.tracks].reverse().find((item) => item.kind === 'video' &&
+        !item.locked && !item.hidden && item.clips.every((other) => !overlaps(clip, other))) ??
+        addTrack(draft, 'video', crypto.randomUUID());
+      track.clips.push(clip);
+      trackId = track.id;
+    });
+    select(clip.id, trackId);
+  }
 
   useEffect(() => {
     if (project) setPeak(audio.current.update(project, playhead, playing, volume));
@@ -119,6 +143,13 @@ export function App() {
         event.preventDefault();
         togglePlayback();
       }
+      if (event.key.toLowerCase() === 't' && !event.ctrlKey && !event.metaKey && !event.altKey &&
+        (!(target instanceof HTMLElement) ||
+          (!['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) && !target.isContentEditable))) {
+        event.preventDefault();
+        setTab('text');
+        addText('title');
+      }
       if (!(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
       if (key === 's') {
@@ -147,6 +178,7 @@ export function App() {
           playback.stop();
           audio.current.close();
           select();
+          setTab('media');
         })}>{s.home}</button>
         <h1 className="text-xl font-semibold">{current.project.name}</h1>
         <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
@@ -154,13 +186,21 @@ export function App() {
         <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
       </header>
       <div className="editor-body">
-        <MediaBin assets={current.project.assets} proxies={proxies} busy={busy} importFiles={importFiles} />
+        <div className="editor-sidebar">
+          <div className="editor-tabs">
+            <button aria-pressed={tab === 'media'} onClick={() => setTab('media')}>{s.media}</button>
+            <button aria-pressed={tab === 'text'} onClick={() => setTab('text')}>{s.text}</button>
+          </div>
+          {tab === 'media' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy} importFiles={importFiles} /> :
+            <TextPanel add={addText} busy={busy} />}
+        </div>
         <PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
-          volume={volume} setVolume={setVolume} peak={peak} />
-        <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />
+          volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select} />
+        {inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit} /> :
+          <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
       </div>
       <Timeline key={current.project.id} project={current.project} edit={edit}
-        playhead={playback.playhead} seek={playback.seek} busy={busy} onSelect={select} />
+        playhead={playback.playhead} seek={playback.seek} busy={busy} onSelect={select} focusedClip={selection.clipId} />
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}

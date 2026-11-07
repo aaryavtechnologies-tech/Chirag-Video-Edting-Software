@@ -147,3 +147,31 @@ test('plays three video layers at Half quality in track order', async ({}, testI
   }
 });
 
+test('edits a title on the canvas and saves its gradient style', async ({}, testInfo) => {
+  const { app, projects } = await launch(testInfo.outputPath('workspace'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.text, exact: true }).click();
+    await page.getByRole('button', { name: s.title, exact: true }).click();
+    await page.getByRole('button', { name: s.styleNames.sunset, exact: true }).click();
+    const preview = page.getByLabel(s.preview, { exact: true });
+    await preview.dblclick();
+    await page.getByLabel(s.inlineText).fill('Sunset');
+    await page.getByLabel(s.inlineText).press('Control+Enter');
+    await expect(page.locator('.clip-text')).toHaveText('Sunset');
+    await page.getByRole('button', { name: s.save, exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText(s.saved);
+    const file = join(projects, s.defaultName, s.defaultName + '.vedit');
+    const saved = JSON.parse(await readFile(file, 'utf8'));
+    expect(saved.tracks.flatMap((track: { clips: unknown[] }) => track.clips)).toEqual([
+      expect.objectContaining({ text: 'Sunset', style: expect.objectContaining({
+        fill: expect.objectContaining({ type: 'gradient' }),
+      }) }),
+    ]);
+  } finally {
+    await app.close();
+  }
+});
+

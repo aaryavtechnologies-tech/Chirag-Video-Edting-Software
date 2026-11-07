@@ -31,9 +31,10 @@ interface Props {
   seek(time: number): void;
   busy: boolean;
   onSelect(clipId?: string, trackId?: string): void;
+  focusedClip?: string;
 }
 
-export function Timeline({ project, edit, playhead, seek, busy, onSelect }: Props) {
+export function Timeline({ project, edit, playhead, seek, busy, onSelect, focusedClip }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(80);
   const [snap, setSnap] = useState(true);
@@ -50,10 +51,9 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect }: Prop
   const width = Math.max(viewport.width - labelsWidth, (length + 8) * zoom);
   const pxToTime = (x: number) => Math.max(0, x / zoom);
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
-  const selectedClip = [...selected].at(-1);
   useEffect(() => {
-    if (selectedClip) onSelect(selectedClip, findClip(project, selectedClip)?.track.id);
-  }, [selectedClip, project, onSelect]);
+    if (focusedClip) setSelected((current) => current.has(focusedClip) ? current : new Set([focusedClip]));
+  }, [focusedClip]);
 
   useEffect(() => {
     const element = pane.current;
@@ -150,11 +150,13 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect }: Prop
     if (extend && kind === 'move' && ids.has(clip.id)) {
       ids.delete(clip.id);
       setSelected(ids);
-      if (!ids.size) onSelect();
+      const next = [...ids].at(-1);
+      onSelect(next, next ? findClip(project, next)?.track.id : undefined);
       return;
     }
     ids.add(clip.id);
     setSelected(ids);
+    onSelect(clip.id, track.id);
     if (track.locked) return;
     capture(event);
     const at = point(event);
@@ -193,6 +195,8 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect }: Prop
         }
       }
       setSelected(ids);
+      const next = [...ids].at(-1);
+      onSelect(next, next ? findClip(project, next)?.track.id : undefined);
       return;
     }
     if (Math.abs(at.x - gesture.origin.x) < 2 && Math.abs(at.y - gesture.origin.y) < 2) return;
@@ -219,7 +223,10 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect }: Prop
     const clipId = id();
     attempt((draft) => {
       const added = insertAsset(draft, asset, trackId, start, clipId, id());
-      if (added) setSelected(new Set([clipId]));
+      if (added) {
+        setSelected(new Set([clipId]));
+        onSelect(clipId, findClip(draft, clipId)?.track.id);
+      }
       return added;
     });
   }
