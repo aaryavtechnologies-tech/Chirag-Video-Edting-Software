@@ -32,5 +32,10 @@ export const strings = {
   loop: 'Loop', quality: 'Preview quality', full: 'Full', half: 'Half', quarter: 'Quarter',
   seeking: 'Loading preview…', missingPreview: 'Some preview media is missing or unreadable.',
   hideTrack: 'Hide video track',
+  audioMeter: 'Audio peak level', masterVolume: 'Master volume', inspector: 'Inspector',
+  selectClip: 'Select a clip or track to edit its settings.', muteTrack: 'Mute track',
+  soloTrack: 'Solo track', trackVolume: 'Track volume', muteClip: 'Mute clip',
+  clipVolume: 'Clip volume', fadeIn: 'Fade in (seconds)', fadeOut: 'Fade out (seconds)',
+  speed: 'Speed', detachAudio: 'Detach audio',
 };
 

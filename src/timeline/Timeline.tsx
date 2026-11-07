@@ -7,6 +7,8 @@ import {
   removeTrack, reorderTrack, splitClips, trimClip,
 } from './operations';
 import { snapTargets, snappedDelta } from './snapping';
+import { Waveform } from './Waveform';
+import { detachAudio } from './audioEdits';
 import './timeline.css';
 
 export const assetDragType = 'application/x-video-editor-asset';
@@ -28,15 +30,17 @@ interface Props {
   playhead: number;
   seek(time: number): void;
   busy: boolean;
+  onSelect(clipId?: string, trackId?: string): void;
 }
 
-export function Timeline({ project, edit, playhead, seek, busy }: Props) {
+export function Timeline({ project, edit, playhead, seek, busy, onSelect }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(80);
   const [snap, setSnap] = useState(true);
   const [gesture, setGesture] = useState<Gesture>();
   const [viewport, setViewport] = useState({ width: 800, left: 0 });
   const [message, setMessage] = useState('');
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number }>();
   const pane = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const fps = project.settings.fps;
@@ -46,6 +50,10 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
   const width = Math.max(viewport.width - labelsWidth, (length + 8) * zoom);
   const pxToTime = (x: number) => Math.max(0, x / zoom);
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
+  const selectedClip = [...selected].at(-1);
+  useEffect(() => {
+    if (selectedClip) onSelect(selectedClip, findClip(project, selectedClip)?.track.id);
+  }, [selectedClip, project, onSelect]);
 
   useEffect(() => {
     const element = pane.current;
@@ -124,6 +132,7 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
   function erase(ripple: boolean) {
     if (selected.size) edit((draft) => deleteClips(draft, selected, ripple));
     setSelected(new Set());
+    onSelect();
   }
   function mark() {
     edit((draft) => {
@@ -141,6 +150,7 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
     if (extend && kind === 'move' && ids.has(clip.id)) {
       ids.delete(clip.id);
       setSelected(ids);
+      if (!ids.size) onSelect();
       return;
     }
     ids.add(clip.id);
@@ -222,7 +232,7 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
   const ticks = Array.from({ length: lastTick - firstTick + 1 }, (_, index) => (firstTick + index) * step);
   const dragDelta = gesture && 'clip' in gesture ? gestureDelta(gesture, gesture.point.x) : 0;
 
-  return <section className="timeline" aria-label={s.timeline}>
+  return <section className="timeline" aria-label={s.timeline} onPointerDown={() => { if (menu) setMenu(undefined); }}>
     <div className="timeline-tools">
       <button disabled={busy} onClick={split}>{s.split}</button>
       <button disabled={busy || !selected.size} onClick={() => erase(false)}>{s.delete}</button>
@@ -267,6 +277,7 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
         {tracks.map((track) => <div key={track.id} className="timeline-row" data-track-id={track.id}>
           <div className="track-label">
             <span draggable={!busy} onDragStart={(event) => event.dataTransfer.setData(trackDragType, track.id)}
+              onClick={() => { setSelected(new Set()); onSelect(undefined, track.id); }}
               onDragOver={(event) => { if (event.dataTransfer.types.includes(trackDragType)) event.preventDefault(); }}
               onDrop={(event) => {
                 event.preventDefault();
@@ -297,6 +308,11 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
               .map((clip) => <ClipBlock key={clip.id} clip={clip} asset={assets.get(clip.assetId ?? '')} zoom={zoom}
                 active={selected.has(clip.id)} delta={gesture && 'ids' in gesture && gesture.ids.has(clip.id) ? dragDelta : 0}
                 gesture={gesture && 'clip' in gesture ? gesture.kind : undefined}
+                context={(event) => {
+                  if (busy || clip.type !== 'video' || !assets.get(clip.assetId ?? '')?.hasAudio) return;
+                  event.preventDefault();
+                  setMenu({ id: clip.id, x: event.clientX, y: event.clientY });
+                }}
                 start={(event, kind) => startClip(event, clip, track, kind)} />)}
           </div>
         </div>)}
@@ -315,12 +331,18 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
         }} />}
       </div>
     </div>
+    {menu && <button className="clip-menu" style={{ left: menu.x, top: menu.y }}
+      onPointerDown={(event) => event.stopPropagation()} onClick={() => {
+        attempt((draft) => detachAudio(draft, menu.id, id(), id()));
+        setMenu(undefined);
+      }}>{s.detachAudio}</button>}
   </section>;
 }
 
-function ClipBlock({ clip, asset, zoom, active, delta, gesture, start }: {
+function ClipBlock({ clip, asset, zoom, active, delta, gesture, start, context }: {
   clip: Clip; asset?: Asset; zoom: number; active: boolean; delta: number; gesture?: 'move' | 'left' | 'right';
   start(event: PointerEvent, kind: 'move' | 'left' | 'right'): void;
+  context(event: React.MouseEvent): void;
 }) {
   const name = clip.text ?? asset?.path.split(/[\\/]/).at(-1) ?? s[clip.type];
   const left = (clip.start + (gesture === 'right' ? 0 : delta)) * zoom;
@@ -329,8 +351,10 @@ function ClipBlock({ clip, asset, zoom, active, delta, gesture, start }: {
   return <div role="button" tabIndex={0} aria-label={name} aria-pressed={active} data-clip-id={clip.id}
     className={`timeline-clip clip-${clip.type}${active ? ' selected' : ''}`}
     style={{ left, width: Math.max(3, width), backgroundImage: tile || undefined }}
-    onPointerDown={(event) => start(event, 'move')}>
+    onPointerDown={(event) => start(event, 'move')} onContextMenu={context}>
     <span>{name}</span>
+    {asset?.waveformPath && (clip.type === 'audio' || (clip.type === 'video' && !clip.muted)) &&
+      <Waveform asset={asset} clip={clip} />}
     <i className="trim left" onPointerDown={(event) => start(event, 'left')} />
     <i className="trim right" onPointerDown={(event) => start(event, 'right')} />
   </div>;

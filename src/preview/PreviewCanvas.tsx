@@ -17,9 +17,10 @@ interface Props {
   project: Project;
   playback: ReturnType<typeof usePlayback>;
   edit(recipe: (draft: Project) => void): void;
+  volume: number; setVolume(value: number): void; peak: number;
 }
 
-export function PreviewCanvas({ project, playback, edit }: Props) {
+export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
@@ -187,6 +188,9 @@ export function PreviewCanvas({ project, playback, edit }: Props) {
       <label>{s.quality}<select value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
         {(Object.keys(qualityDivisors) as Quality[]).map((key) => <option key={key} value={key}>{s[key]}</option>)}
       </select></label>
+      <label>{s.masterVolume}<input type="range" min={0} max={1} step={0.01} value={volume}
+        onChange={(event) => setVolume(event.target.valueAsNumber)} /></label>
+      <meter aria-label={s.audioMeter} min={0} max={1} value={Math.min(1, peak)} />
     </div>
     <p className="muted">{width} × {height} · {fps} {s.fps}</p>
   </div>;

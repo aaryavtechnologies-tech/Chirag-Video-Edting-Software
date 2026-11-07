@@ -37,7 +37,8 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
     if (!ffmpeg) throw new Error('FFmpeg not available');
     const source = join(root, 'large.mp4');
     await promisify(execFile)(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
-      'color=blue:s=2048x1152:r=24:d=1', '-c:v', 'libx264', '-threads', '2', '-y', source]);
+      'color=blue:s=2048x1152:r=24:d=1', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1',
+      '-c:v', 'libx264', '-c:a', 'aac', '-threads', '2', '-y', source]);
     await app.evaluate(({ dialog }, path) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
     }, source);
@@ -57,6 +58,7 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
       targetPosition: { x: 0, y: 20 },
     });
     await expect(page.locator('[data-clip-id]')).toHaveCount(1);
+    await expect(page.locator('.clip-wave')).toHaveCount(1);
     await page.locator('.ruler .track-lane').click({ position: { x: 40, y: 10 } });
     await expect.poll(() => page.getByLabel(s.preview, { exact: true }).evaluate((canvas: HTMLCanvasElement) =>
       canvas.getContext('2d')!.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data[2]))
@@ -67,10 +69,15 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
     await page.getByRole('button', { name: new RegExp(s.defaultName) }).click();
     await expect(page.getByText(s.proxyReady)).toBeVisible();
     await expect(page.locator('[data-clip-id]')).toHaveCount(2);
+    await page.locator('.timeline-clip').first().click({ button: 'right' });
+    await page.getByRole('button', { name: s.detachAudio, exact: true }).click();
+    await expect(page.locator('.clip-audio')).toHaveCount(1);
+    await expect(page.locator('.clip-audio .clip-wave')).toHaveCount(1);
     const file = join(projects, s.defaultName, s.defaultName + '.vedit');
     expect(JSON.parse(await readFile(file, 'utf8')).assets[0]).toMatchObject({
       path: source, width: 2048, height: 1152, fps: 24,
       thumbPath: expect.stringMatching(/^cache\//), proxyPath: expect.stringMatching(/^cache\//),
+      waveformPath: expect.stringMatching(/^cache\//),
     });
   } finally {
     await app.close();
@@ -100,18 +107,23 @@ test('plays three video layers at Half quality in track order', async ({}, testI
     const opened = await createProject({ name: 'Layers', folder: projects,
       settings: { width: 640, height: 360, fps: 30 } });
     const colors = ['red', 'lime', 'blue'];
-    const assets = await Promise.all(colors.map(async (color) => {
+    const assets = await Promise.all(colors.map(async (color, index) => {
       const path = join(root, color + '.mp4');
       await promisify(execFile)(binary, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
-        `color=${color}:s=640x360:r=30:d=2`, '-c:v', 'libx264', '-threads', '2', '-y', path]);
-      return { id: color, type: 'video' as const, path, duration: 2, width: 640, height: 360 };
+        `color=${color}:s=640x360:r=30:d=2`, '-f', 'lavfi', '-i',
+        `sine=frequency=${440 + index * 137}:duration=2`,
+        '-c:v', 'libx264', '-c:a', 'aac', '-threads', '2', '-y', path]);
+      return { id: color, type: 'video' as const, path, duration: 2, width: 640, height: 360, hasAudio: true };
     }));
     await saveProject(opened.file, { ...opened.project, assets,
-      tracks: assets.map((asset, order) => ({
-        id: 'track-' + order, name: 'V' + (order + 1), kind: 'video', order,
-        clips: [{ id: 'clip-' + order, assetId: asset.id, type: 'video', start: 0, duration: 2,
-          transform: { scale: [1, 0.7, 0.35][order] } }],
-      })),
+      tracks: [...assets.map((asset, order) => ({
+        id: 'track-' + order, name: 'V' + (order + 1), kind: 'video' as const, order,
+        clips: [{ id: 'clip-' + order, assetId: asset.id, type: 'video' as const, start: 0, duration: 2,
+          muted: true, transform: { scale: [1, 0.7, 0.35][order] } }],
+      })), ...assets.slice(0, 2).map((asset, order) => ({
+        id: 'audio-track-' + order, name: 'A' + (order + 1), kind: 'audio' as const, order,
+        clips: [{ id: 'audio-clip-' + order, assetId: asset.id, type: 'audio' as const, start: 0, duration: 2 }],
+      }))],
     });
     await app.evaluate(({ dialog }, path) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
@@ -127,8 +139,11 @@ test('plays three video layers at Half quality in track order', async ({}, testI
     })).toEqual([true, true, true]);
     await page.getByRole('button', { name: s.play, exact: true }).click();
     await expect(page.locator('.timeline-time')).not.toHaveText('00:00:00:00');
+    await expect.poll(() => page.getByLabel(s.audioMeter).evaluate((meter: HTMLMeterElement) => meter.value))
+      .toBeGreaterThan(0.15);
     await page.getByRole('button', { name: s.pause, exact: true }).click();
   } finally {
     await app.close();
   }
 });
+

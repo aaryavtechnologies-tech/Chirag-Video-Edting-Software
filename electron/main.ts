@@ -16,7 +16,7 @@ let pending: Promise<unknown> = Promise.resolve();
 const html = join(__dirname, '../renderer/index.html');
 const url = new URL(process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(html).href).href;
 protocol.registerSchemesAsPrivileged([{
-  scheme: 'editor-media', privileges: { standard: true, secure: true, stream: true, corsEnabled: true },
+  scheme: 'editor-media', privileges: { standard: true, secure: true, stream: true, corsEnabled: true, supportFetchAPI: true },
 }]);
 
 async function logError(error: unknown) {
@@ -181,8 +181,9 @@ void app.whenReady().then(async () => {
       if (!isAbsolute(asset.path) || !mediaExtensions.includes(extname(asset.path).slice(1).toLowerCase())) return missing();
       file = asset.path;
     } else {
-      const path = hostname === 'thumbnail' ? asset.thumbPath : hostname === 'proxy' ? asset.proxyPath : undefined;
-      const extension = hostname === 'thumbnail' ? '.jpg' : '.proxy.mp4';
+      const path = hostname === 'thumbnail' ? asset.thumbPath : hostname === 'proxy' ? asset.proxyPath :
+        hostname === 'waveform' ? asset.waveformPath : undefined;
+      const extension = hostname === 'thumbnail' ? '.jpg' : hostname === 'waveform' ? '.wave.json' : '.proxy.mp4';
       file = join(folder, 'cache', asset.id + extension);
       if (!path || !/^[\w-]+$/.test(asset.id) || resolve(folder, path) !== file) return missing();
     }

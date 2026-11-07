@@ -26,3 +26,5 @@
 .trim { width: 7px; position: absolute; top: 0; bottom: 0; cursor: ew-resize; }
 .trim.left { left: 0; }
 .trim.right { right: 0; }
+.clip-wave { position: absolute; left: 4px; right: 4px; width: calc(100% - 8px); height: 16px; bottom: 2px; color: #9aeed5; pointer-events: none; }
+.clip-menu { position: fixed; z-index: 4; }

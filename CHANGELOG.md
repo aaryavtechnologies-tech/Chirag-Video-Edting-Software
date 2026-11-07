@@ -1,5 +1,9 @@
 # Changelog
 
+## M5
+
+- Added multi-track Web Audio mixing, track and clip controls, speed, detach audio, waveform caching, and a master meter.
+
 ## M4
 
 - Added the layered canvas, playback clock, scrubbing, preview quality, proxy playback, and on-canvas transform handles.

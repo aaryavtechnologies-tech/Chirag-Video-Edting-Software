@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { strings as s } from '../lib/strings';
 import { useProject } from '../store/projectStore';
 import type { HomeState, RecentProject } from '../types/desktop';
@@ -10,6 +10,8 @@ import { Timeline } from '../timeline/Timeline';
 import { projectDuration } from '../timeline/operations';
 import { PreviewCanvas } from '../preview/PreviewCanvas';
 import { usePlayback } from '../preview/usePlayback';
+import { AudioEngine } from '../preview/audioEngine';
+import { AudioInspector } from '../panels/Inspector/AudioInspector';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' } | ProjectDialog;
@@ -22,6 +24,26 @@ export function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const playback = usePlayback(current ? projectDuration(current.project) : 0);
+  const audio = useRef(new AudioEngine());
+  const [volume, setVolume] = useState(1);
+  const [peak, setPeak] = useState(0);
+  const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
+  const select = useCallback((clipId?: string, trackId?: string) => setSelection({ clipId, trackId }), []);
+  const project = current?.project;
+  const { playing, playhead } = playback;
+
+  useEffect(() => {
+    if (project) setPeak(audio.current.update(project, playhead, playing, volume));
+  }, [project, playhead, playing, volume]);
+  useEffect(() => {
+    const engine = audio.current;
+    return () => engine.close();
+  }, []);
+
+  function togglePlayback() {
+    if (!playing) audio.current.resume();
+    playback.toggle();
+  }
 
   async function run(operation: () => Promise<void>) {
     setBusy(true);
@@ -95,7 +117,7 @@ export function App() {
         (!(target instanceof HTMLElement) ||
           (!['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName) && !target.isContentEditable))) {
         event.preventDefault();
-        playback.toggle();
+        togglePlayback();
       }
       if (!(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
@@ -123,6 +145,8 @@ export function App() {
           setHome(await window.desktop.home());
           setCurrent();
           playback.stop();
+          audio.current.close();
+          select();
         })}>{s.home}</button>
         <h1 className="text-xl font-semibold">{current.project.name}</h1>
         <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
@@ -131,10 +155,12 @@ export function App() {
       </header>
       <div className="editor-body">
         <MediaBin assets={current.project.assets} proxies={proxies} busy={busy} importFiles={importFiles} />
-        <PreviewCanvas project={current.project} playback={playback} edit={edit} />
+        <PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
+          volume={volume} setVolume={setVolume} peak={peak} />
+        <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />
       </div>
       <Timeline key={current.project.id} project={current.project} edit={edit}
-        playhead={playback.playhead} seek={playback.seek} busy={busy} />
+        playhead={playback.playhead} seek={playback.seek} busy={busy} onSelect={select} />
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}

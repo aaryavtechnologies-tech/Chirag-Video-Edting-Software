@@ -5,6 +5,7 @@ import type { Asset } from '../../src/types/project';
 import type { ImportResult, MediaProgress, OpenProject } from '../../src/types/desktop';
 import { runMediaTool } from './ffmpeg';
 import { probeAsset } from './probe';
+import { generateWaveform } from './waveforms';
 
 export function needsProxy(asset: Asset) {
   const width = asset.width ?? 0;
@@ -40,6 +41,10 @@ export async function importMedia(
         } catch (error) {
           await log(error);
         }
+      }
+      if (asset.hasAudio) {
+        try { asset.waveformPath = await generateWaveform(root, asset); }
+        catch (error) { await log(error); }
       }
       imported.push(asset);
     } catch (error) {
