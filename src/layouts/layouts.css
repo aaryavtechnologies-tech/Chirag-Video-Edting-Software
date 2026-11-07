@@ -1,0 +1,29 @@
+.editor-body { --rail-width:50px; --preview-height:44vh; position:relative; min-height:0; }
+.editor-layout-portrait { --preview-height:53vh; }
+.editor-body[data-dock-open="false"] { --dock-size:var(--rail-width) !important; }
+.editor-body[data-dock-open="false"] .editor-sidebar { display:none; }
+.editor-body[data-inspector-open="false"] { --inspector-size:0px !important; }
+.editor-body { grid-template-columns:var(--dock-size) minmax(0,1fr) var(--inspector-size); }
+.editor-body > .panel-resizer { position:absolute; top:0; bottom:0; width:5px; left:calc(var(--dock-size) - 3px); z-index:2; }
+.editor-body > .editor-stage + .panel-resizer { left:auto; right:calc(var(--inspector-size) - 3px); }
+.layout-inspector { grid-column:3; min-width:0; }
+.preview-surface { width:min(100%, calc(var(--preview-height) * var(--preview-ratio))); }
+.editor-portrait .timeline-row { min-height:34px; }
+.editor-portrait .timeline-row.ruler { min-height:26px; }
+.editor-portrait .timeline-scroll { max-height:24vh; }
+.safe-guide { position:absolute; inset:10%; border:1px dashed #ecedf1; box-shadow:0 0 0 1px #0007; pointer-events:none; }
+.safe-guide.platform-safe { inset:11% 15% 21% 8%; }
+.ratio-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--space-2); }
+.ratio-cards button { display:grid; justify-items:center; align-items:end; min-height:64px; font-size:.82rem; }
+.ratio-cards button span { border:1px solid var(--muted); border-radius:2px; background:var(--raised); }
+.ratio-cards button[aria-pressed="true"] { border-color:var(--focus); background:var(--raised); }
+.chrome-menu [role^="menuitem"] { padding:var(--space-1) var(--space-2); border-radius:4px; outline:none; cursor:pointer; }
+.chrome-menu [data-highlighted] { background:var(--accent); color:white; }
+.chrome-menu [role="separator"] { height:1px; background:var(--line); margin:var(--space-1); }
+@media (max-width:1439px) {
+  .editor-body { grid-template-columns:var(--dock-size) minmax(0,1fr); }
+  .layout-inspector { position:absolute; z-index:3; top:0; right:0; width:var(--inspector-size); box-shadow:var(--shadow); }
+  .editor-body > .editor-stage + .panel-resizer { display:none; }
+  .layout-inspector .inspector { max-height:min(64vh, 100%); }
+  .editor-body[data-inspector-open="true"] .editor-stage { margin-right:min(var(--inspector-size), 22vw); }
+}

@@ -323,7 +323,7 @@ function registerHandlers(settings: Settings) {
 
 function createWindow() {
   window = new BrowserWindow({
-    title: strings.app, width: 1280, height: 840, minWidth: 800, minHeight: 600,
+    title: strings.app, width: 1440, height: 840, minWidth: 1280, minHeight: 720,
     backgroundColor: '#10111a',
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),

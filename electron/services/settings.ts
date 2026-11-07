@@ -2,10 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import type { HomeState, OpenProject, Preferences } from '../../src/types/desktop';
 import { recentProject, writeJson } from './projects';
+import { layoutPreferencesSchema } from '../../src/layouts/settings';
 
 export const preferencesSchema = z.object({
   folder: z.string().min(1), theme: z.enum(['dark', 'light']),
   autosave: z.number().int().min(5).max(3600),
+  layout: layoutPreferencesSchema.optional(),
 });
 
 const recentSchema = z.object({

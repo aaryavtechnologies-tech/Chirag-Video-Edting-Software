@@ -4,6 +4,7 @@ import { App } from './App';
 import './styles.css';
 import '../design-system/tokens.css';
 import './editorChrome.css';
+import '../layouts/layouts.css';
 import './fonts.css';
 
 document.title = strings.app;

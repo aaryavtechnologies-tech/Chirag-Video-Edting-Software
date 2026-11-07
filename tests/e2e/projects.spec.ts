@@ -120,6 +120,27 @@ async function launch(root: string, reuse = false) {
   return { app, projects };
 }
 
+test('selects portrait from the ratio card and persists a layout override', async ({}, testInfo) => {
+  const root = testInfo.outputPath('workspace');
+  const { app } = await launch(root);
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByRole('button', { name: '9:16', exact: true }).click();
+    await page.getByRole('button', { name: s.create }).click();
+    await expect(page.locator('.editor-body')).toHaveAttribute('data-layout', 'portrait');
+    await expect(page.getByLabel(s.platformSafe)).toBeVisible();
+    await page.getByRole('button', { name: s.view, exact: true }).click();
+    await page.getByRole('menuitemradio', { name: s.landscape }).click();
+    await expect(page.locator('.editor-body')).toHaveAttribute('data-layout', 'landscape');
+    const settings = join(root, 'profile', 'settings.json');
+    await expect.poll(async () => JSON.parse(await readFile(settings, 'utf8')).preferences.layout?.mode)
+      .toBe('landscape');
+  } finally {
+    await app.close();
+  }
+});
+
 test('recovers an autosaved edit after an interrupted session', async ({}, testInfo) => {
   const root = testInfo.outputPath('workspace');
   const { app, projects } = await launch(root);

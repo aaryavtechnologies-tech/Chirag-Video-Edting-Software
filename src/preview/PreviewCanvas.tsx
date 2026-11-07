@@ -24,9 +24,10 @@ interface Props {
   selected?: string; onSelect(clipId?: string, trackId?: string): void;
   snapshot: MutableRefObject<(() => string | undefined) | undefined>;
   onQuality?(quality: Quality): void;
+  safeGuides?: boolean;
 }
 
-export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot, onQuality }: Props) {
+export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot, onQuality, safeGuides }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
@@ -230,7 +231,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
   const editing = inline && findClip(project, inline)?.clip;
 
   return <div className="editor-stage">
-    <div className="preview-surface" style={{ aspectRatio: width / height, width: `min(100%, ${45 * width / height}vh)` }}>
+    <div className="preview-surface" style={{ aspectRatio: width / height, '--preview-ratio': width / height } as React.CSSProperties}>
       <canvas ref={canvas} aria-label={s.preview} width={canvasWidth} height={canvasHeight}
         onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => setDrag(undefined)}
         onDoubleClick={() => {
@@ -252,6 +253,8 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
           }
         }} />}
       {status && <span className="preview-status" role="status">{status}</span>}
+      {safeGuides && <div className={`safe-guide ${width <= height ? 'platform-safe' : ''}`} role="img"
+        aria-label={width <= height ? s.platformSafe : s.titleSafe} />}
     </div>
     <div className="transport">
       <button onClick={() => step(-1)} aria-label={s.previousFrame}>⏮</button>

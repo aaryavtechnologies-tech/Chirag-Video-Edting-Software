@@ -1,6 +1,7 @@
 # Decisions
 
 - P1 connects the new rail to Media, Audio, Text, and Templates. Caption, shape, effect, and transition entries reserve their places in the shell until their tools are available.
+- P2 treats square projects as portrait and uses a shared vertical-video safe area across platforms. Auto-reframe fits the old canvas inside the new one and maps positions into the fitted area.
 
 - The text update extends the existing animation enums in the project schema. Existing projects keep their animation settings. The new enum values require Video Editor 0.2.0 or later.
 

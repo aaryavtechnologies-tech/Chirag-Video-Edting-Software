@@ -37,6 +37,15 @@ export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial 
   }}>
     <fieldset disabled={busy}>
       {!initial && <label>{s.name}<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} /></label>}
+      {!initial && <div className="ratio-cards" aria-label={s.aspect}>
+        {(['16:9', '9:16', '1:1', '4:5'] as const).map((value) => {
+          const [x, y] = ratios[value];
+          return <button type="button" key={value} aria-pressed={ratio === value} onClick={() => setRatio(value)}>
+            <span aria-hidden="true" style={{ width: 32 * x / Math.max(x, y), height: 32 * y / Math.max(x, y) }} />
+            {value}
+          </button>;
+        })}
+      </div>}
       <div className="grid grid-cols-2 gap-4">
         <label>{s.aspect}<select value={ratio} onChange={(e) => setRatio(e.target.value as typeof ratio)}>
           {Object.keys(ratios).map((value) => <option key={value}>{value}</option>)}

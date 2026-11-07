@@ -16,14 +16,19 @@ import { TextInspector } from '../panels/Inspector/TextInspector';
 import { TextPanel } from '../panels/TextPanel';
 import { textKinds } from '../lib/textPresets';
 import { alignFrame, timecode, timeToFrame } from '../lib/time';
-import type { Asset, Clip, Project } from '../types/project';
+import type { Asset, Clip, Project, ProjectSettings } from '../types/project';
 import type { OpenProject } from '../types/desktop';
 import { ExportDialog } from '../export/ExportDialog';
-import { PanelResizer } from './PanelResizer';
-import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, type Dock } from './EditorChrome';
+import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, LayoutMenu, type Dock } from './EditorChrome';
+import { LayoutProvider } from '../layouts/LayoutProvider';
+import { LandscapeLayout } from '../layouts/LandscapeLayout';
+import { PortraitLayout } from '../layouts/PortraitLayout';
+import { resolveLayout, type LayoutPreferences } from '../layouts/settings';
+import { reframeProject } from '../layouts/reframe';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
-type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } | ProjectDialog;
+type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } |
+  { kind: 'adaptContent'; settings: ProjectSettings } | ProjectDialog;
 
 export function App() {
   const { current, setCurrent, acceptSaved, edit: storeEdit, past, future, undo, redo, proxies, mediaProgress } = useProject();
@@ -46,10 +51,24 @@ export function App() {
   const [previewQuality, setPreviewQuality] = useState<'full' | 'half' | 'quarter'>('half');
   const [exportOpen, setExportOpen] = useState(false);
   const [missing, setMissing] = useState<Asset[]>([]);
-  const [mediaWidth, setMediaWidth] = useState(230);
-  const [inspectorWidth, setInspectorWidth] = useState(215);
-  const clampPanel = (width: number) => Math.min(310, Math.max(160, width));
-  const select = useCallback((clipId?: string, trackId?: string) => setSelection({ clipId, trackId }), []);
+  const [dockOpen, setDockOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [safeGuides, setSafeGuides] = useState<boolean>();
+  const layout = home?.preferences.layout;
+  const resolvedLayout = resolveLayout(layout?.mode ?? 'auto', project?.settings.width ?? 16, project?.settings.height ?? 9);
+  const Layout = resolvedLayout === 'portrait' ? PortraitLayout : LandscapeLayout;
+  const showGuides = safeGuides ?? resolvedLayout === 'portrait';
+  const select = useCallback((clipId?: string, trackId?: string) => {
+    setSelection({ clipId, trackId });
+    if (clipId || trackId) setInspectorOpen(true);
+  }, []);
+
+  function saveLayout(value: LayoutPreferences) {
+    if (!home) return;
+    const preferences = { ...home.preferences, layout: value };
+    setHome({ ...home, preferences });
+    void window.desktop.preferences(preferences).catch(() => setError(s.operationFailed));
+  }
   const { playing, playhead } = playback;
   const inspected = project && selection.clipId ? findClip(project, selection.clipId)?.clip : undefined;
 
@@ -73,7 +92,9 @@ export function App() {
     const preset = textKinds[kind];
     const clip: Clip = { id: crypto.randomUUID(), type: 'text',
       start: alignFrame(playhead, project.settings.fps), duration: 3, text: s[kind],
-      style: { ...preset.style }, transform: { y: preset.y } };
+      style: { ...preset.style, ...(project.settings.width <= project.settings.height && {
+        fontSize: (preset.style.fontSize ?? 64) * project.settings.height / 1920,
+      }) }, transform: { y: preset.y } };
     let trackId: string | undefined;
     edit((draft) => {
       const track = [...draft.tracks].reverse().find((item) => item.kind === 'video' &&
@@ -219,7 +240,7 @@ export function App() {
   const title = modal?.kind === 'new' ? s.newProject : modal ? s[modal.kind] : '';
   const proxyTask = Object.values(proxies).find((update) => update.percent < 100 && !update.failed);
   return <EditorTooltips>
-    {current ? <main className="editor">
+    {current ? <main className={`editor editor-${resolvedLayout}`}>
       <header className="editor-toolbar">
         <button disabled={busy} onClick={() => void run(async () => {
           await window.desktop.save(current.project, snapshot.current?.());
@@ -237,23 +258,26 @@ export function App() {
         <button disabled={busy} onClick={() => setModal({ kind: 'saveAs' })}>{s.saveAs}</button>
         {missing.length > 0 && <button disabled={busy} onClick={() => setModal({ kind: 'relink' })}>{s.relink}</button>}
         <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
+        <LayoutMenu mode={layout?.mode ?? 'auto'} change={(mode) => saveLayout({ ...layout, mode })}
+          dockOpen={dockOpen} inspectorOpen={inspectorOpen} guides={showGuides} toggleDock={() => setDockOpen(!dockOpen)}
+          toggleInspector={() => setInspectorOpen(!inspectorOpen)} toggleGuides={() => setSafeGuides(!showGuides)} />
         <ChromeActions theme={home?.preferences.theme ?? 'dark'} toggleTheme={toggleTheme} openPalette={() => setPalette(true)} />
         <button className="primary" disabled={busy || duration <= 0}
           onClick={openExport}>{s.export}</button>
       </header>
-      <div className="editor-body" style={{ gridTemplateColumns: `${mediaWidth}px 5px minmax(0, 1fr) 5px ${inspectorWidth}px` }}>
-        <EditorDock active={tab} select={setTab}>
+      <LayoutProvider settings={layout} width={current.project.settings.width} height={current.project.settings.height}>
+      <Layout preferences={layout} dockOpen={dockOpen} inspectorOpen={inspectorOpen}
+        savePanels={(sizes) => saveLayout({ mode: layout?.mode ?? 'auto', panels: { ...layout?.panels, [resolvedLayout]: sizes } })}
+        dock={<EditorDock active={tab} select={(value) => { setDockOpen(true); setTab(value); }}>
           {tab === 'media' || tab === 'audio' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy}
             audioOnly={tab === 'audio'} importFiles={importFiles} /> :
             tab === 'text' || tab === 'templates' ? <TextPanel add={addText} busy={busy} /> :
             <section className="dock-empty"><h2>{s[tab]}</h2><p className="muted">{s.dockPending}</p></section>}
-        </EditorDock>
-        <PanelResizer width={mediaWidth} resize={(width) => setMediaWidth(clampPanel(width))} />
-        <PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
+        </EditorDock>}
+        preview={<PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
           volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={select}
-          snapshot={snapshot} onQuality={setPreviewQuality} />
-        <PanelResizer width={inspectorWidth} right resize={(width) => setInspectorWidth(clampPanel(width))} />
-        {!selection.clipId && !selection.trackId ? <aside className="inspector">
+          snapshot={snapshot} onQuality={setPreviewQuality} safeGuides={showGuides} />}
+        inspector={!selection.clipId && !selection.trackId ? <aside className="inspector">
           <h2 className="font-semibold">{s.projectSettings}</h2>
           <p className="muted my-3">{current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}</p>
           <p className="muted">{s.tracks} {current.project.tracks.length} · {s.media} {current.project.assets.length}</p>
@@ -261,7 +285,8 @@ export function App() {
         </aside> : inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
           previewAnimation={() => playback.previewRange(inspected.start, inspected.start + inspected.duration)} /> :
           <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
-      </div>
+      />
+      </LayoutProvider>
       <Timeline key={current.project.id} project={current.project} edit={edit}
         playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal || palette}
         onSelect={select} focusedClip={selection.clipId} onZoom={setTimelineZoom} />
@@ -313,9 +338,24 @@ export function App() {
         })} />}
       {modal.kind === 'projectSettings' && current && <NewProjectForm preferences={home.preferences}
         initial={current.project.settings} busy={busy} onFolder={pickFolder} onCreate={({ settings }) => {
-          edit((draft) => { draft.settings = settings; });
-          setModal(undefined);
+          const before = current.project.settings;
+          if (before.width * settings.height !== settings.width * before.height) setModal({ kind: 'adaptContent', settings });
+          else {
+            edit((draft) => { draft.settings = settings; });
+            setModal(undefined);
+          }
         }} />}
+      {modal.kind === 'adaptContent' && <div className="grid gap-3 mt-3">
+        <p>{s.adaptHelp}</p>
+        <button onClick={() => {
+          edit((draft) => { draft.settings = modal.settings; });
+          setModal(undefined);
+        }}>{s.keepPositions}</button>
+        <button className="primary" onClick={() => {
+          edit((draft) => reframeProject(draft, modal.settings));
+          setModal(undefined);
+        }}>{s.autoReframe}</button>
+      </div>}
       {modal.kind === 'saveAs' && current && <SaveAsForm initial={current.project.name + ' ' + s.copySuffix}
         folder={home.preferences.folder} busy={busy} onFolder={pickFolder} onSave={(name, folder) =>
           void run(async () => {

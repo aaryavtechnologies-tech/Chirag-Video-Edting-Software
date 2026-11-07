@@ -7,7 +7,7 @@ export type RecentProject = {
   width: number; height: number; background: string;
   thumbnail?: string;
 };
-export type Preferences = { folder: string; theme: 'dark' | 'light'; autosave: number };
+export type Preferences = { folder: string; theme: 'dark' | 'light'; autosave: number; layout?: import('../layouts/settings').LayoutPreferences };
 export type HomeState = { recent: RecentProject[]; preferences: Preferences; recovery?: RecentProject };
 export type NewProject = { name: string; folder: string; settings: ProjectSettings };
 export type MediaProgress = {
