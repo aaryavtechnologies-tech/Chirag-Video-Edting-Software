@@ -36,6 +36,7 @@ export const strings = {
   trackDefault: 'Track default', splitLongCaptions: 'Split long captions by template limits',
   importCaptions: 'Import captions', exportCaptions: 'Export captions', captionExportFormat: 'Caption export format',
   burnCaptions: 'Burn captions into video', captionSidecar: 'Export captions as a separate SRT file only',
+  framesPrepared: 'frames prepared',
   wordEffect: 'Word effect', wordEffectNames: {
     none: 'None', highlightColor: 'Active word highlight', scalePop: 'Active word pop',
     pillSlide: 'Sliding pill', karaokeFill: 'Karaoke fill', underlineSweep: 'Underline sweep',

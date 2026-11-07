@@ -6,6 +6,7 @@
 - P4 keeps legacy motion fields readable. Choosing an advanced preset creates clip-level slots. Frame-sequence export is scheduled for P7.
 - P5 stores captions separately from ordinary clips. The preview derives text layers from caption segments and their effective templates. Word timestamps are relative to each segment.
 - P6 preserves overlapping cues. Frame-rate conversion preserves frame numbers by multiplying imported timestamps by source FPS divided by project FPS. A sidecar SRT uses the same export range as the video.
+- P7 sends pre-composited PNG frames to the main process in small batches. Static clips use one PNG, and identical frames in an animation hold reuse the staged raster.
 
 - The text update extends the existing animation enums in the project schema. Existing projects keep their animation settings. The new enum values require Video Editor 0.2.0 or later.
 

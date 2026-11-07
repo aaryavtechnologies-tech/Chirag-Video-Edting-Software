@@ -22,6 +22,7 @@ const api: DesktopApi = {
   },
   chooseExport: (value) => ipcRenderer.invoke(channels.chooseExport, value),
   startExport: (value, file, rasters) => ipcRenderer.invoke(channels.startExport, value, file, rasters),
+  stageTextFrames: (batch) => ipcRenderer.invoke(channels.stageTextFrames, batch),
   cancelExport: () => ipcRenderer.invoke(channels.cancelExport),
   openLog: () => ipcRenderer.invoke(channels.openLog),
   stage: (project) => ipcRenderer.invoke(channels.stage, project),

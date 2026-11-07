@@ -1,5 +1,5 @@
 import type { Asset, Project, ProjectSettings } from './project';
-import type { ExportProgress, ExportResult, ExportSettings, TextPng } from './export';
+import type { ExportProgress, ExportResult, ExportSettings, TextFrameBatch, TextPng } from './export';
 
 export type OpenProject = { file: string; project: Project };
 export type RecentProject = {
@@ -22,6 +22,7 @@ export const channels = {
   reveal: 'projects:reveal',
   importMedia: 'media:import',
   chooseExport: 'export:choose', startExport: 'export:start', cancelExport: 'export:cancel', openLog: 'log:open',
+  stageTextFrames: 'export:text-frames',
   stage: 'projects:stage', saveAs: 'projects:save-as', discardRecovery: 'projects:discard-recovery',
   missing: 'media:missing', relink: 'media:relink',
 } as const;
@@ -44,6 +45,7 @@ export interface DesktopApi {
   onMediaProgress(listener: (progress: MediaProgress) => void): () => void;
   chooseExport(value: ExportSettings): Promise<string | undefined>;
   startExport(value: ExportSettings, file: string, rasters: TextPng[]): Promise<ExportResult>;
+  stageTextFrames(batch: TextFrameBatch): Promise<void>;
   cancelExport(): Promise<void>;
   openLog(): Promise<void>;
   onExportProgress(listener: (progress: ExportProgress) => void): () => void;

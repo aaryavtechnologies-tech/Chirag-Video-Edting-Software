@@ -7,35 +7,31 @@ import type { Project } from '../types/project';
 import type { ExportProgress, ExportResult, ExportSettings, TextPng } from '../types/export';
 import { loadTextFont, rasterizeText } from '../text/rasteriser';
 import { estimateExportBytes, exportPresets, exportSizes, qualityFactors, suggestedBitrate } from './exportPresets';
+import { captionExportProject } from '../captions/model';
+import { encodePng, needsTextFrames, stageTextFrames } from './textFrames';
 
 const videoFormats = { h264: 'MP4 · H.264', hevc: 'MP4 · H.265 / HEVC', vp9: 'WebM · VP9' } as const;
 const audioFormats = { mp3: 'MP3', wav: 'WAV', m4a: 'AAC / M4A' } as const;
 const even = (size: number) => Math.min(3840, Math.max(16, Math.round(size / 2) * 2));
 
-async function encodePng(canvas: HTMLCanvasElement) {
-  const blob = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((value) => value ? resolve(value) : reject(new Error(s.exportFailed)), 'image/png'));
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(',')[1]);
-    reader.onerror = () => reject(new Error(s.exportFailed));
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function prepareRasters(project: Project, settings: ExportSettings, cancelled: () => boolean) {
+async function prepareRasters(project: Project, settings: ExportSettings, cancelled: () => boolean, report: (frames: number) => void) {
   const rasters: TextPng[] = [];
   if (settings.mode === 'audio') return rasters;
   const scale = Math.min(settings.width / project.settings.width, settings.height / project.settings.height);
-  for (const track of project.tracks) {
+  let frames = 0;
+  for (const track of captionExportProject(project, settings.burnCaptions !== false).tracks) {
     if (track.kind !== 'video' || track.hidden) continue;
     for (const clip of track.clips) {
       if (cancelled()) return rasters;
       if (clip.type !== 'text') continue;
       const text = clip.text ?? '';
       await loadTextFont(text, clip.style);
-      const png = await encodePng(rasterizeText(text, clip.style, scale));
-      rasters.push({ id: clip.id, png });
+      const raster = rasterizeText(text, clip.style, scale);
+      if (needsTextFrames(clip)) {
+        let count = 0;
+        await stageTextFrames(project, clip, raster, settings, cancelled, (value) => { count = value; report(frames + value); });
+        frames += count;
+      } else rasters.push({ id: clip.id, png: await encodePng(raster) });
     }
   }
   return rasters;
@@ -58,6 +54,7 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
   const [result, setResult] = useState<ExportResult>();
   const [progress, setProgress] = useState<ExportProgress>();
   const [controller, setController] = useState<AbortController>();
+  const [preparedFrames, setPreparedFrames] = useState(0);
   const busy = status !== 'idle';
   const duration = value.range ? value.range.end - value.range.start : total;
   const estimate = Number.isFinite(value.bitrate) ? estimateExportBytes(value, Math.max(0, duration)) : 0;
@@ -71,6 +68,7 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
     if (!(duration > 0) || busy) return;
     setResult(undefined);
     setProgress(undefined);
+    setPreparedFrames(0);
     setError('');
     setStatus('choosing');
     const control = new AbortController();
@@ -81,13 +79,15 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
       if (!file) return;
       setStatus('preparing');
       await save();
-      const rasters = await prepareRasters(project, settings, () => control.signal.aborted);
+      const rasters = await prepareRasters(project, settings, () => control.signal.aborted, setPreparedFrames);
       if (control.signal.aborted) { onCancelled(); return; }
       setStatus('rendering');
       const exported = await window.desktop.startExport(settings, file, rasters);
       if (exported.cancelled) onCancelled();
       else setResult(exported);
     } catch (failure) {
+      await window.desktop.cancelExport().catch(() => undefined);
+      if (control.signal.aborted) { onCancelled(); return; }
       setError(failure instanceof Error ? failure.message.replace(/^.*?Error: /, '') : s.exportFailed);
     } finally {
       setStatus('idle');
@@ -203,7 +203,7 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
     </form>
     {(status === 'preparing' || status === 'rendering') && <div className="grid gap-2 mt-3">
       <progress aria-label={s.exportProgress} max={100} value={progress?.percent ?? 0} />
-      <p role="status">{status === 'preparing' ? s.preparingExport : progress?.verifying ? s.verifyingExport :
+      <p role="status">{status === 'preparing' ? `${s.preparingExport}${preparedFrames ? ` ${preparedFrames} ${s.framesPrepared}` : ''}` : progress?.verifying ? s.verifyingExport :
         `${progress?.percent ?? 0}% · ${s.elapsed} ${Math.round(progress?.elapsed ?? 0)} ${s.seconds}${progress?.eta === undefined ? '' :
           ` · ${s.eta} ${Math.round(progress.eta)} ${s.seconds}`}`}</p>
       {progress?.encoder && <p className="muted">{s.encoder} {progress.encoder}</p>}

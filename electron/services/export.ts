@@ -12,6 +12,7 @@ import type { Project } from '../../src/types/project';
 import { runMediaTool } from './ffmpeg';
 import { selectEncoder, softwareEncoder } from './encoders';
 import { exportCaptions } from '../../src/captions/exporters';
+import { captionExportProject } from '../../src/captions/model';
 
 const rasterSchema = z.array(z.object({ id: z.string(), png: z.string().max(80_000_000) })).max(500);
 const reportSchema = z.object({
@@ -98,6 +99,7 @@ function audioArgs(settings: ExportSettings, file: string) {
 export async function exportProject(
   project: Project, value: ExportSettings, selected: string, rasters: TextPng[],
   report: (progress: ExportProgress) => void, signal: AbortSignal,
+  sequences: ReadonlyMap<string, RasterInput> = new Map(),
 ): Promise<ExportResult> {
   const settings = exportSettingsSchema.parse(value);
   if (!isAbsolute(selected) || !extname(selected)) throw new Error('Invalid output path');
@@ -122,13 +124,14 @@ export async function exportProject(
       }
       throw new Error(strings.exportExists);
     }
+    const renderProject = captionExportProject(project, settings.mode !== 'audio' && settings.burnCaptions !== false);
     const rasterPaths = settings.mode === 'audio' ? new Map<string, RasterInput>() :
-      await saveRasters(directory, project, rasters);
-    const { inputs, script, duration } = buildFilterGraph(project, settings, rasterPaths);
+      await saveRasters(directory, renderProject, rasters);
+    for (const [id, raster] of sequences) rasterPaths.set(id, raster);
+    const { inputs, sources, script, duration } = buildFilterGraph(renderProject, settings, rasterPaths);
     const { bsize, bavail } = await statfs(dirname(selected), { bigint: true });
     if (bsize * bavail < BigInt(estimateExportBytes(settings, duration))) throw new Error(strings.exportSpace);
-    for (let index = 1; index < inputs.length; index += 2) {
-      const source = inputs[index];
+    for (const source of sources) {
       if (!isAbsolute(source)) throw new Error(strings.exportMissing);
       try { await access(source); } catch { throw new Error(strings.exportMissing); }
     }

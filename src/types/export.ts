@@ -18,6 +18,10 @@ export const exportSettingsSchema = z.object({
 
 export type ExportSettings = z.infer<typeof exportSettingsSchema>;
 export type TextPng = { id: string; png: string };
+export type TextFrameBatch = {
+  id: string; fps: number; startFrame: number; x: number; y: number;
+  frames: { index: number; png?: string; repeat?: number }[];
+};
 export type ExportProgress = {
   percent: number; elapsed: number; eta?: number; verifying?: boolean; encoder?: string; fallback?: boolean;
 };

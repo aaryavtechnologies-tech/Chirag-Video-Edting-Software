@@ -327,6 +327,65 @@ test('styles, previews and exports a title with zoom and shrink animation', asyn
   }
 });
 
+test('matches animated caption preview and exported frames at three timestamps', async ({}, testInfo) => {
+  test.setTimeout(90_000);
+  if (!ffmpeg) throw new Error('FFmpeg not available');
+  const binary = ffmpeg;
+  const { app, projects } = await launch(testInfo.outputPath('workspace'));
+  try {
+    const opened = await createProject({ name: 'Caption Parity', folder: projects,
+      settings: { width: 640, height: 360, fps: 30 } });
+    await saveProject(opened.file, { ...opened.project, captionTracks: [{
+      id: 'caption-track', name: 'Captions', kind: 'caption', templateId: 'parity',
+      templateSnapshot: { id: 'parity', name: 'Parity', style: { fontSize: 144, bold: true },
+        landscape: { y: 0.58, maxWidth: 0.88 },
+        animation: { in: { preset: 'riseFade', duration: 0.4 }, loop: { preset: 'float', duration: 0.7 },
+          out: { preset: 'fade', duration: 0.5 } },
+        wordEffect: { type: 'karaokeFill', activeColor: '#ffe86a' },
+      },
+      segments: [{ id: 'first', start: 0.2, duration: 1.7, text: 'नमस्ते दुनिया' }],
+    }] });
+    const output = join(projects, 'caption-parity.mp4');
+    await app.evaluate(({ dialog }, files) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [files.project] });
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: files.output });
+    }, { project: opened.file, output });
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.openProject }).click();
+    await page.getByLabel(s.quality).selectOption('full');
+    const preview = page.getByLabel(s.preview, { exact: true });
+    const times = [0.4, 1, 1.7];
+    const snapshots: string[] = [];
+    for (const time of times) {
+      await page.locator('.ruler .track-lane').click({ position: { x: time * 80, y: 10 } });
+      await expect.poll(() => preview.evaluate((canvas: HTMLCanvasElement) => {
+        const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixels.some((value, index) => index % 4 === 0 && value > 80);
+      })).toBe(true);
+      const png = await preview.evaluate(async (canvas: HTMLCanvasElement) => {
+        await document.fonts.ready;
+        await new Promise(requestAnimationFrame);
+        return canvas.toDataURL('image/png').split(',')[1];
+      });
+      const snapshot = join(projects, `preview-${snapshots.length}.png`);
+      await writeFile(snapshot, Buffer.from(png, 'base64'));
+      snapshots.push(snapshot);
+    }
+    await page.getByRole('button', { name: s.export, exact: true }).click();
+    await page.getByRole('button', { name: s.chooseOutput }).click();
+    await expect(page.getByText(s.exportDone)).toBeVisible({ timeout: 60_000 });
+    for (const [index, time] of times.entries()) {
+      const frame = Math.round(time * 30);
+      const { stderr } = await promisify(execFile)(binary, ['-hide_banner', '-i', output, '-i', snapshots[index],
+        '-filter_complex', `[0:v]select=eq(n\\,${frame}),setpts=PTS-STARTPTS[frame];[frame][1:v]ssim`,
+        '-frames:v', '1', '-f', 'null', '-']);
+      expect(Number(/All:([0-9.]+)/.exec(stderr)?.[1])).toBeGreaterThan(0.98);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
 test('exports the layered sample project as 4K60 MP4 and MP3', async ({}, testInfo) => {
   test.setTimeout(90_000);
   const root = testInfo.outputPath('workspace');

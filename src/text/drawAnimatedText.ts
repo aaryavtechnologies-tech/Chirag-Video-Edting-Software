@@ -98,15 +98,20 @@ function drawCaptionWords(ctx: CanvasRenderingContext2D, source: HTMLCanvasEleme
   return true;
 }
 
-export function drawAnimatedText(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, clip: Clip, time: number, transform: Transform) {
-  if (!clip.animation && !clip.caption?.wordEffect?.type) {
-    drawLayer(ctx, source, clip, time, source, animateText(clip, transform, time));
+export function drawAnimatedText(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, clip: Clip, time: number,
+  transform: Transform, stage = { width: ctx.canvas.width, height: ctx.canvas.height, x: 0, y: 0 }) {
+  if (!clip.animation && (!clip.caption?.wordEffect?.type || clip.caption.wordEffect.type === 'none')) {
+    const legacy = animateText(clip, transform, time);
+    drawLayer(ctx, source, clip, time, source, {
+      ...legacy, x: (stage.x + legacy.x * stage.width) / ctx.canvas.width,
+      y: (stage.y + legacy.y * stage.height) / ctx.canvas.height,
+    });
     return;
   }
-  const state = evaluateAnimation(clip, time - clip.start, ctx.canvas);
+  const state = evaluateAnimation(clip, time - clip.start, stage);
   const perUnit = state.letterSpacingDelta ? rasterRegions(source, 'char') : rasterRegions(source, state.granularity);
   ctx.save();
-  ctx.translate(transform.x * ctx.canvas.width, transform.y * ctx.canvas.height);
+  ctx.translate(stage.x + transform.x * stage.width, stage.y + transform.y * stage.height);
   ctx.rotate(radians(transform.rotation));
   ctx.scale(transform.scale, transform.scale);
   ctx.translate(-source.width / 2, -source.height / 2);

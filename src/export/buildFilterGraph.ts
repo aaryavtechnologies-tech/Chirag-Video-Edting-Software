@@ -5,8 +5,9 @@ import { textMotion } from '../lib/textMotion';
 import { clipTransform, fittedSize, radians } from '../preview/compositor';
 import { projectDuration } from '../timeline/operations';
 
-export type RasterInput = { path: string; width: number; height: number };
-export type ExportGraph = { inputs: string[]; script: string; duration: number };
+export type RasterInput = { path: string; width: number; height: number;
+  sequence?: { fps: number; startFrame: number; x: number; y: number; firstFile: string } };
+export type ExportGraph = { inputs: string[]; sources: string[]; script: string; duration: number };
 const fixed = (number: number) => Number(number.toFixed(9)).toString();
 const colour = (value: string | undefined) => /^#[\da-f]{6}$/i.test(value ?? '') ? '0x' + value!.slice(1) : 'black';
 const even = (number: number) => Math.max(2, Math.round(number / 2) * 2);
@@ -44,10 +45,13 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
   const stage = fittedSize(width, height, project.settings.width, project.settings.height, false);
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
   const inputs: string[] = [];
+  const sources: string[] = [];
   const graph: string[] = [];
-  const input = (path: string) => {
-    const index = inputs.length / 2;
+  const input = (path: string, sequence?: RasterInput['sequence']) => {
+    const index = sources.length;
+    if (sequence) inputs.push('-framerate', String(sequence.fps), '-start_number', '0');
     inputs.push('-i', path);
+    sources.push(sequence?.firstFile ?? path);
     return index;
   };
 
@@ -65,14 +69,23 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
         const asset = assets.get(clip.assetId ?? '');
         const path = text ? raster?.path : asset?.path;
         if (!path) throw new Error(`Missing source for clip ${clip.id}`);
-        const index = input(path);
+        const sequence = raster?.sequence;
+        const index = input(path, sequence);
+        if (sequence) {
+          const next = 'mixv' + layers;
+          graph.push(`[${index}:V:0]format=yuva420p,setpts=PTS-STARTPTS+${sequence.startFrame}[${'layer' + layers}]`);
+          graph.push(`[${under}][layer${layers}]overlay=x=${sequence.x}:y=${sequence.y}:eof_action=pass:repeatlast=0:enable='gte(t,${fixed(clip.start)})*lt(t,${fixed(clip.start + clip.duration)})'[${next}]`);
+          under = next;
+          layers += 1;
+          continue;
+        }
         const still = clip.type !== 'video';
         const size = text && raster ? raster : fittedSize(stage.width, stage.height,
           asset?.width || stage.width, asset?.height || stage.height, clip.fit === 'cover');
         const transform = clipTransform(clip);
         const w = even(size.width * Math.max(0.01, transform.scale));
         const h = even(size.height * Math.max(0.01, transform.scale));
-        const motion = text ? textMotion(clip) : undefined;
+        const motion = text && !clip.animation ? textMotion(clip) : undefined;
         const fade = clipFades(clip, false);
         if (motion?.enter.fade) fade.push(`fade=t=in:st=0:d=${fixed(motion.duration)}:alpha=1`);
         if (motion?.exit.fade) fade.push(
@@ -140,5 +153,5 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
     `${audioInputs.map((label) => `[${label}]`).join('')}amix=inputs=${audioInputs.length}:duration=first:normalize=0`;
   const output = mode === 'both' ? 'asplit=2[aout][aonly]' : 'anull[aout]';
   graph.push(`${mix},volume=${fixed(settings.volume)},alimiter=limit=1:level=0:latency=1,atrim=start=${fixed(range.start)}:end=${fixed(range.end)},asetpts=PTS-STARTPTS,${output}`);
-  return { inputs, script: graph.join(';\n'), duration };
+  return { inputs, sources, script: graph.join(';\n'), duration };
 }

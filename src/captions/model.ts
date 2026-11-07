@@ -129,3 +129,12 @@ export function captionLayers(project: Project, time: number) {
     track.segments.filter((segment) => time >= segment.start && time < segment.start + segment.duration)
       .map((segment) => resolveCaption(project, track, segment)));
 }
+
+export function captionExportProject(project: Project, burn: boolean): Project {
+  if (!burn || !project.captionTracks?.length) return project;
+  const order = project.tracks.reduce((highest, track) => Math.max(highest, track.order ?? 0), 0);
+  return { ...project, tracks: [...project.tracks, ...project.captionTracks.map((track, index) => ({
+    id: track.id, kind: 'video' as const, name: track.name ?? s.captions, hidden: track.hidden,
+    order: order + index + 1, clips: track.segments.map((segment) => resolveCaption(project, track, segment)),
+  }))] };
+}

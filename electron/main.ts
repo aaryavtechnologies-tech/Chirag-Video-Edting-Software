@@ -10,6 +10,7 @@ import { importMedia, needsProxy, populateAssetCache, queueProxy } from './servi
 import { mediaExtensions, probeAsset } from './services/probe';
 import { z } from 'zod';
 import { exportProject } from './services/export';
+import { TextFrameStore } from './services/textFrames';
 import { exportSettingsSchema, videoExtension } from '../src/types/export';
 import { discardAutosave, newerAutosave, readAutosave, writeAutosave } from './services/recovery';
 import { missingAssets } from './services/relink';
@@ -22,6 +23,7 @@ let pending: Promise<unknown> = Promise.resolve();
 let exporting: AbortController | undefined;
 let exportJob: Promise<unknown> | undefined;
 let exportPath: string | undefined;
+let textFrameStore: TextFrameStore | undefined;
 let confirmClose = async () => true;
 const html = join(__dirname, '../renderer/index.html');
 const url = new URL(process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(html).href).href;
@@ -146,6 +148,8 @@ function registerHandlers(settings: Settings) {
     }
     exporting?.abort();
     await exportJob?.catch(() => undefined);
+    await textFrameStore?.close().catch(logError);
+    textFrameStore = undefined;
     return true;
   };
 
@@ -293,16 +297,24 @@ function registerHandlers(settings: Settings) {
       filters: [{ name: strings.exportFiles, extensions: [ext] }],
     });
     exportPath = result.filePath;
+    await textFrameStore?.close().catch(logError);
+    textFrameStore = exportPath ? new TextFrameStore(settings) : undefined;
     return exportPath;
+  });
+  register('stageTextFrames', async (batch) => {
+    if (!active || !exportPath || !textFrameStore) throw new Error(strings.exportFailed);
+    await textFrameStore.append(batch, active.project);
   });
   register('startExport', async (settings, file, rasters) => {
     if (exporting || !active || !exportPath || file !== exportPath) throw new Error(strings.exportFailed);
     exportPath = undefined;
+    const frames = textFrameStore;
+    textFrameStore = undefined;
     const controller = new AbortController();
     exporting = controller;
     try {
       const task = exportProject(active.project, settings, file, rasters,
-        (progress) => window?.webContents.send(exportProgressChannel, progress), controller.signal);
+        (progress) => window?.webContents.send(exportProgressChannel, progress), controller.signal, frames?.finish(settings));
       exportJob = task;
       const result = await task;
       if (settings.openFolder && result.files[0]) shell.showItemInFolder(result.files[0]);
@@ -313,11 +325,19 @@ function registerHandlers(settings: Settings) {
       await logError(error);
       throw new Error(strings.exportFailed);
     } finally {
+      await frames?.close().catch(logError);
       exporting = undefined;
       exportJob = undefined;
     }
   }, false);
-  register('cancelExport', async () => { exporting?.abort(); }, false);
+  register('cancelExport', async () => {
+    if (exporting) { exporting.abort(); return; }
+    exportPath = undefined;
+    const frames = textFrameStore;
+    textFrameStore = undefined;
+    await pending;
+    await frames?.close().catch(logError);
+  }, false);
   register('openLog', async () => { shell.showItemInFolder(join(app.getPath('userData'), 'editor.log')); });
 }
 
