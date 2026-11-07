@@ -28,5 +28,9 @@ export const strings = {
   dropTrack: 'Drop media here to create a track', removeTrack: 'Remove track', lockTrack: 'Lock track',
   editBlocked: 'The edit is blocked by track type, clip boundaries, overlap, or a locked track.',
   text: 'Text',
+  play: 'Play', pause: 'Pause', previousFrame: 'Previous frame', nextFrame: 'Next frame',
+  loop: 'Loop', quality: 'Preview quality', full: 'Full', half: 'Half', quarter: 'Quarter',
+  seeking: 'Loading preview…', missingPreview: 'Some preview media is missing or unreadable.',
+  hideTrack: 'Hide video track',
 };
 

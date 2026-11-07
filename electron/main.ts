@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 'electron';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { channels, mediaProgressChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
 import { strings } from '../src/lib/strings';
@@ -15,7 +15,9 @@ let active: OpenProject | undefined;
 let pending: Promise<unknown> = Promise.resolve();
 const html = join(__dirname, '../renderer/index.html');
 const url = new URL(process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(html).href).href;
-protocol.registerSchemesAsPrivileged([{ scheme: 'editor-media', privileges: { standard: true, secure: true, stream: true } }]);
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'editor-media', privileges: { standard: true, secure: true, stream: true, corsEnabled: true },
+}]);
 
 async function logError(error: unknown) {
   const line = error instanceof Error ? error.stack ?? error.message : String(error);
@@ -171,13 +173,28 @@ void app.whenReady().then(async () => {
     const { pathname, hostname } = new URL(request.url);
     const current = active;
     const asset = current?.project.assets.find((item) => encodeURIComponent(item.id) === pathname.slice(1));
-    if (!current || hostname !== 'thumbnail' || !asset?.thumbPath) return new Response(null, { status: 404 });
+    const missing = () => new Response(null, { status: 404, headers: { 'Access-Control-Allow-Origin': '*' } });
+    if (!current || !asset) return missing();
     const folder = dirname(current.file);
-    const expected = join(folder, 'cache', asset.id + '.jpg');
-    if (!/^[\w-]+$/.test(asset.id) || resolve(folder, asset.thumbPath) !== expected) {
-      return new Response(null, { status: 404 });
+    let file: string;
+    if (hostname === 'source') {
+      if (!isAbsolute(asset.path) || !mediaExtensions.includes(extname(asset.path).slice(1).toLowerCase())) return missing();
+      file = asset.path;
+    } else {
+      const path = hostname === 'thumbnail' ? asset.thumbPath : hostname === 'proxy' ? asset.proxyPath : undefined;
+      const extension = hostname === 'thumbnail' ? '.jpg' : '.proxy.mp4';
+      file = join(folder, 'cache', asset.id + extension);
+      if (!path || !/^[\w-]+$/.test(asset.id) || resolve(folder, path) !== file) return missing();
     }
-    return net.fetch(pathToFileURL(expected).href).catch(() => new Response(null, { status: 404 }));
+    const range = request.headers.get('range');
+    try {
+      const response = await net.fetch(pathToFileURL(file).href, range ? { headers: { range } } : {});
+      const headers = new Headers(response.headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      return new Response(response.body, { status: response.status, headers });
+    } catch {
+      return missing();
+    }
   });
   Menu.setApplicationMenu(null);
   createWindow();

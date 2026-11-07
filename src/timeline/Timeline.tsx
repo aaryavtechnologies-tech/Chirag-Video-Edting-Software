@@ -278,6 +278,11 @@ export function Timeline({ project, edit, playhead, seek, busy }: Props) {
                 const found = draft.tracks.find((entry) => entry.id === track.id);
                 if (found) found.locked = !found.locked;
               })}>⌑</button>
+            {track.kind === 'video' && <button disabled={busy} aria-label={s.hideTrack} title={s.hideTrack}
+              aria-pressed={!!track.hidden} onClick={() => edit((draft) => {
+                const found = draft.tracks.find((entry) => entry.id === track.id);
+                if (found) found.hidden = !found.hidden;
+              })}>◉</button>}
             <button disabled={busy || track.locked} aria-label={s.removeTrack} title={s.removeTrack}
               onClick={() => attempt((draft) => removeTrack(draft, track.id))}>×</button>
           </div>

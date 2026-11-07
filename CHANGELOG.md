@@ -1,5 +1,9 @@
 # Changelog
 
+## M4
+
+- Added the layered canvas, playback clock, scrubbing, preview quality, proxy playback, and on-canvas transform handles.
+
 ## M3
 
 - Added multi-track editing with asset drops, track management, group movement, trim, split, ripple deletion, snapping, markers, and timeline navigation.

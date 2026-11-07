@@ -6,4 +6,5 @@
 - Home renames the display name while keeping the project path stable. Deletion uses the OS trash for a standalone file, or the whole folder for an editor-created project.
 - M2 keeps sources at their original absolute paths and stores generated thumbnails and proxies under the project cache. Proxy jobs run one at a time and fall back to the source on failure.
 - M3 blocks same-track overlaps. Ripple deletion removes the selected durations from subsequent clips on each affected track. The strip repeats the cached asset thumbnail until frame-specific thumbnails are available.
+- M4 uses proxies at Half and Quarter quality when available. Full quality reads originals. Media decoding uses Chromium through a streaming project-media protocol.
 

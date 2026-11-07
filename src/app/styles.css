@@ -65,8 +65,13 @@ input[type="color"] { width: 100%; height: 2.75rem; }
 .media-thumb { display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: var(--surface); position: relative; }
 .media-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .media-duration { position: absolute; right: .25rem; bottom: .25rem; background: #10111acc; color: white; padding: 0 .25rem; border-radius: 4px; }
-.editor-stage { padding: 1rem; display: grid; place-content: center; justify-items: center; gap: .75rem; }
-.canvas { width: min(58vw, 660px); max-height: 45vh; border: 1px solid var(--line); }
+.editor-stage { min-width: 0; padding: 1rem; display: grid; align-content: center; justify-items: center; gap: .75rem; }
+.preview-surface { position: relative; border: 1px solid var(--line); }
+.preview-surface canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.preview-status { position: absolute; bottom: .5rem; left: .5rem; padding: .3rem .55rem; border-radius: 8px; background: #10111ad9; color: white; font-size: .8rem; pointer-events: none; }
+.transport { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .4rem; }
+.transport label { display: flex; align-items: center; font-size: .8rem; }
+.transport [aria-pressed="true"] { background: var(--accent); color: white; }
 .track { border: 1px solid var(--line); border-radius: 8px; margin: .4rem 0; padding: .5rem 1rem; }
 .error, .status { padding: .75rem 1rem; margin-top: .75rem; }
 .error { color: var(--error); white-space: pre-line; overflow-wrap: anywhere; max-width: min(38rem, 85vw); }
