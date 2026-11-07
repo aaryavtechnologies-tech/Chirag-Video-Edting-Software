@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { entrances, exits } from './textMotion';
+import { animationSetSchema } from '../animation/schema';
 
 // Draft-07 permits additional properties wherever the schema does not forbid them.
 const object = <T extends z.ZodRawShape>(shape: T) => z.object(shape).passthrough();
@@ -61,7 +62,7 @@ export const clipSchema = object({
   sourceIn: num, sourceOut: num, speed: z.number().min(0.25).max(4).optional(),
   volume: z.number().min(0).max(2).optional(), muted: bool, fadeIn: num, fadeOut: num,
   transform: transformSchema.optional(), fit: z.enum(['contain', 'cover']).optional(),
-  text: str, style: textStyleSchema.optional(), linkedClipId: path,
+  text: str, style: textStyleSchema.optional(), animation: animationSetSchema.optional(), linkedClipId: path,
 });
 
 export const trackSchema = object({

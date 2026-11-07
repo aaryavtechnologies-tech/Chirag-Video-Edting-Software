@@ -5,6 +5,7 @@ import { bundledFonts } from '../../text/fontCatalog';
 import { FontPicker } from '../../text/FontPicker';
 import { TextLayerControls } from '../../text/TextLayerControls';
 import { textStyleSchema } from '../../lib/schema';
+import { AnimationInspector } from '../../animation/AnimationInspector';
 import { entrances, exits } from '../../lib/textMotion';
 import { clipTransform, type Transform } from '../../preview/compositor';
 import { findClip } from '../../timeline/operations';
@@ -65,6 +66,18 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
     </div>
     <fieldset disabled={locked} hidden={tab !== 'animation'}>
       <legend>{s.animation}</legend>
+      <details open={!!clip.animation} className="style-layers">
+        <summary>{s.advancedAnimation}</summary>
+        {tab === 'animation' && <AnimationInspector value={clip.animation} change={(animation) => change((item) => {
+          const duration = Math.max(0.1, Math.min(3, item.style?.animationDuration ?? 0.4));
+          item.animation = {
+            in: item.style?.animationIn ? { preset: item.style.animationIn, duration } : undefined,
+            out: item.style?.animationOut ? { preset: item.style.animationOut, duration } : undefined,
+            ...animation,
+          };
+        })} />}
+      </details>
+      {!clip.animation && <>
       <Choice label={s.enter} value={style.animationIn ?? 'none'} values={entrances}
         change={(animationIn) => set({ animationIn })} />
       <Choice label={s.exit} value={style.animationOut ?? 'none'} values={exits}
@@ -73,8 +86,10 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
         value={style.animationDuration ?? 0.4} onChange={(event) => set({ animationDuration: event.target.valueAsNumber })} />
         <span className="muted">{style.animationDuration ?? 0.4}{s.seconds}</span>
       </label>
-      <button onClick={previewAnimation} disabled={(!style.animationIn || style.animationIn === 'none') &&
-        (!style.animationOut || style.animationOut === 'none')}>{s.previewAnimation}</button>
+      </>}
+      <button onClick={previewAnimation} disabled={clip.animation ?
+        ![clip.animation.in, clip.animation.out, clip.animation.loop].some((slot) => slot && slot.preset !== 'none') :
+        (!style.animationIn || style.animationIn === 'none') && (!style.animationOut || style.animationOut === 'none')}>{s.previewAnimation}</button>
     </fieldset>
     <fieldset disabled={locked} hidden={tab !== 'styles'}>
       <legend>{s.presets}</legend>

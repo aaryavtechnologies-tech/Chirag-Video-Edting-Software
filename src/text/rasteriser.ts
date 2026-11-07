@@ -1,5 +1,10 @@
 import type { TextStyle } from '../types/project';
 import { wrapText } from './wrap';
+import type { Granularity } from '../animation/schema';
+
+export type TextRegion = { x: number; y: number; width: number; height: number };
+const layouts = new WeakMap<HTMLCanvasElement, Partial<Record<Granularity, TextRegion[]>>>();
+export const rasterRegions = (canvas: HTMLCanvasElement, granularity: Granularity) => layouts.get(canvas)?.[granularity];
 
 function bounded(value: number | undefined, fallback: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Number.isFinite(value) ? value! : fallback));
@@ -119,11 +124,29 @@ export function rasterizeText(text: string, style: TextStyle | undefined, scale:
   if (maskContext) setup(maskContext);
   const wordColors = new Map(style?.wordStyles?.map((entry) => [entry.index, entry.color]));
   let wordIndex = 0;
+  const regions: Record<'line' | 'word' | 'char', TextRegion[]> = { line: [], word: [], char: [] };
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
   lines.forEach((line, index) => {
     const measured = metrics[index].width;
     const offset = input.align === 'center' ? (width - measured) / 2 : input.align === 'right' ? width - measured : 0;
     const x = edge + padding + offset;
     const y = edge + padding + top + ascent + index * input.line;
+    const firstY = index === 0 ? 0 : Math.max(0, y - ascent - input.line / 2 + ascent / 2);
+    const lastY = index === lines.length - 1 ? canvas.height : Math.min(canvas.height, firstY + input.line);
+    const region = (left: number, right: number) => ({
+      x: left, y: firstY, width: Math.max(0, right - left), height: Math.max(1, lastY - firstY),
+    });
+    regions.line.push(region(0, canvas.width));
+    function register(unit: string, start: number, end: number, output: TextRegion[]) {
+      if (/^\s+$/u.test(unit)) return;
+      const before = ctx.measureText(line.slice(0, start)).width;
+      const after = ctx.measureText(line.slice(0, end)).width;
+      const left = ctx.direction === 'rtl' ? x + measured - after : x + before;
+      const right = ctx.direction === 'rtl' ? x + measured - before : x + after;
+      output.push(region(Math.max(0, left), Math.min(canvas.width, right)));
+    }
+    for (const word of line.matchAll(/\S+/gu)) register(word[0], word.index, word.index + word[0].length, regions.word);
+    for (const { segment, index: start } of segmenter.segment(line)) register(segment, start, start + segment.length, regions.char);
     // Draw each effect behind the glyph without painting its fill a second time.
     if (shadows.length || glow) {
       for (const effect of [glow && { ...glow, x: 0, y: 0, opacity: 1 }, ...shadows]) {
@@ -201,7 +224,9 @@ export function rasterizeText(text: string, style: TextStyle | undefined, scale:
       const width = Math.min(strip, canvas.width - x);
       target.drawImage(canvas, x, 0, width, canvas.height, x, Math.max(0, -amplitude) + offset, width, canvas.height);
     }
+    layouts.set(curved, regions);
     return curved;
   }
+  layouts.set(canvas, regions);
   return canvas;
 }

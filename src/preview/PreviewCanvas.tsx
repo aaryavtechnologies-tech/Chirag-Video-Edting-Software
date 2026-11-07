@@ -9,6 +9,7 @@ import { MediaElements } from './mediaElements';
 import type { usePlayback } from './usePlayback';
 import { loadTextFont, rasterizeText } from '../text/rasteriser';
 import { animateText } from '../lib/textMotion';
+import { drawAnimatedText } from '../text/drawAnimatedText';
 import type { Clip } from '../types/project';
 
 type Quality = 'full' | 'half' | 'quarter';
@@ -90,7 +91,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
         const transform = drag?.clipId === clip.id ? drag.next : clipTransform(clip);
         if (clip.type === 'text') {
           const text = textSurface(clip);
-          if (clip.id !== inline) drawLayer(ctx, text, clip, playhead, text, animateText(clip, transform, playhead));
+          if (clip.id !== inline) drawAnimatedText(ctx, text, clip, playhead, transform);
           continue;
         }
         const asset = assets.get(clip.assetId ?? '');
