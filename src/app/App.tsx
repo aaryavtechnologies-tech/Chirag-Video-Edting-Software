@@ -17,6 +17,7 @@ import { TextPanel } from '../panels/TextPanel';
 import { textKinds } from '../lib/textPresets';
 import { alignFrame } from '../lib/time';
 import type { Clip } from '../types/project';
+import { ExportDialog } from '../export/ExportDialog';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' } | ProjectDialog;
@@ -34,6 +35,7 @@ export function App() {
   const [peak, setPeak] = useState(0);
   const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
   const [tab, setTab] = useState<'media' | 'text'>('media');
+  const [exportOpen, setExportOpen] = useState(false);
   const select = useCallback((clipId?: string, trackId?: string) => setSelection({ clipId, trackId }), []);
   const project = current?.project;
   const { playing, playhead } = playback;
@@ -67,6 +69,12 @@ export function App() {
   function togglePlayback() {
     if (!playing) audio.current.resume();
     playback.toggle();
+  }
+
+  function openExport() {
+    if (!project || busy || projectDuration(project) <= 0 || exportOpen) return;
+    if (playing) playback.toggle();
+    setExportOpen(true);
   }
 
   async function run(operation: () => Promise<void>) {
@@ -135,7 +143,7 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if (!current) return;
+      if (!current || exportOpen) return;
       const target = event.target;
       if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey &&
         (!(target instanceof HTMLElement) ||
@@ -156,6 +164,7 @@ export function App() {
         event.preventDefault();
         save();
       }
+      if (key === 'e') { event.preventDefault(); openExport(); }
       if (key === 'z' && !(event.target instanceof HTMLInputElement) &&
         !(event.target instanceof HTMLTextAreaElement)) {
         event.preventDefault();
@@ -184,6 +193,8 @@ export function App() {
         <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
         <button disabled={busy || !future.length} onClick={() => stepHistory('redo')}>{s.redo}</button>
         <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
+        <button className="primary" disabled={busy || projectDuration(current.project) <= 0}
+          onClick={openExport}>{s.export}</button>
       </header>
       <div className="editor-body">
         <div className="editor-sidebar">
@@ -200,7 +211,7 @@ export function App() {
           <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
       </div>
       <Timeline key={current.project.id} project={current.project} edit={edit}
-        playhead={playback.playhead} seek={playback.seek} busy={busy} onSelect={select} focusedClip={selection.clipId} />
+        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen} onSelect={select} focusedClip={selection.clipId} />
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}
@@ -214,6 +225,9 @@ export function App() {
       }} />}
     {!modal && message}
     {notice && <p className="status" role="status">{notice}</p>}
+    {current && exportOpen && <ExportDialog project={current.project} volume={volume}
+      save={async () => { acceptSaved(await window.desktop.save(current.project)); }}
+      close={() => setExportOpen(false)} />}
     {home && modal && <Modal title={title} busy={busy} close={() => { setModal(undefined); setError(''); }}>
       {modal.kind === 'new' && <NewProjectForm preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onCreate={(value) => void run(async () => {

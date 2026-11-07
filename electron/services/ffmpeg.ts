@@ -8,8 +8,9 @@ function executable(file: string | null) {
 }
 
 export function runMediaTool(
-  tool: 'ffmpeg' | 'ffprobe', args: string[], progress?: (seconds: number) => void,
+  tool: 'ffmpeg' | 'ffprobe', args: string[], progress?: (seconds: number) => void, signal?: AbortSignal,
 ): Promise<string> {
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     const child = spawn(executable(tool === 'ffmpeg' ? ffmpeg : ffprobe.path), args, {
       windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
@@ -36,7 +37,10 @@ export function runMediaTool(
       }
     });
     child.on('error', reject);
+    const abort = () => { child.kill(); };
+    signal?.addEventListener('abort', abort, { once: true });
     child.on('close', (code) => {
+      signal?.removeEventListener('abort', abort);
       if (code === 0) resolve(output);
       else reject(new Error(`${tool} exited with code ${code}\n${stderr}`));
     });

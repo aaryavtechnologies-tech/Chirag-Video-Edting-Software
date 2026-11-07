@@ -30,8 +30,8 @@ export function layerSize(clip: Clip, asset: Asset | undefined, width: number, h
 export function fadeOpacity(clip: Clip, time: number) {
   const elapsed = time - clip.start;
   const remaining = clip.duration - elapsed;
-  return Math.max(0, Math.min(1, clip.fadeIn ? elapsed / clip.fadeIn : 1,
-    clip.fadeOut ? remaining / clip.fadeOut : 1));
+  const clamp = (value: number) => Math.max(0, Math.min(1, value));
+  return clamp(clip.fadeIn ? elapsed / clip.fadeIn : 1) * clamp(clip.fadeOut ? remaining / clip.fadeOut : 1);
 }
 
 export function drawLayer(

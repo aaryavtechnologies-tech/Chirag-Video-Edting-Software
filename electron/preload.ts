@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
-import { channels, mediaProgressChannel, type DesktopApi, type MediaProgress } from '../src/types/desktop';
+import { channels, exportProgressChannel, mediaProgressChannel, type DesktopApi, type MediaProgress } from '../src/types/desktop';
+import type { ExportProgress } from '../src/types/export';
 
 const api: DesktopApi = {
   home: () => ipcRenderer.invoke(channels.home),
@@ -18,6 +19,15 @@ const api: DesktopApi = {
     const forward = (_event: IpcRendererEvent, progress: MediaProgress) => listener(progress);
     ipcRenderer.on(mediaProgressChannel, forward);
     return () => ipcRenderer.removeListener(mediaProgressChannel, forward);
+  },
+  chooseExport: (value) => ipcRenderer.invoke(channels.chooseExport, value),
+  startExport: (value, file, rasters) => ipcRenderer.invoke(channels.startExport, value, file, rasters),
+  cancelExport: () => ipcRenderer.invoke(channels.cancelExport),
+  openLog: () => ipcRenderer.invoke(channels.openLog),
+  onExportProgress: (listener) => {
+    const forward = (_event: IpcRendererEvent, progress: ExportProgress) => listener(progress);
+    ipcRenderer.on(exportProgressChannel, forward);
+    return () => ipcRenderer.removeListener(exportProgressChannel, forward);
   },
 };
 

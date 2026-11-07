@@ -2,17 +2,21 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { channels, mediaProgressChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
+import { channels, exportProgressChannel, mediaProgressChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
 import { strings } from '../src/lib/strings';
 import { createProject, loadProject, nameSchema, ownedFolderMarker, parseProject, saveProject } from './services/projects';
 import { Settings } from './services/settings';
 import { importMedia, queueProxy } from './services/media';
 import { mediaExtensions } from './services/probe';
 import { z } from 'zod';
+import { exportProject } from './services/export';
+import { exportSettingsSchema, videoExtension } from '../src/types/export';
 
 let window: BrowserWindow | undefined;
 let active: OpenProject | undefined;
 let pending: Promise<unknown> = Promise.resolve();
+let exporting: AbortController | undefined;
+let exportPath: string | undefined;
 const html = join(__dirname, '../renderer/index.html');
 const url = new URL(process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(html).href).href;
 protocol.registerSchemesAsPrivileged([{
@@ -24,24 +28,28 @@ async function logError(error: unknown) {
   await appendFile(join(app.getPath('userData'), 'editor.log'), `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
 }
 
-function register<K extends keyof typeof channels>(key: K, handler: (...args: Parameters<DesktopApi[K]>) => ReturnType<DesktopApi[K]>) {
+function register<K extends keyof typeof channels>(
+  key: K, handler: (...args: Parameters<DesktopApi[K]>) => ReturnType<DesktopApi[K]>, serial = true,
+) {
   ipcMain.handle(channels[key], (event, ...args: Parameters<DesktopApi[K]>) => {
     if (event.sender !== window?.webContents || event.senderFrame?.url !== url) {
       throw new Error(strings.operationFailed);
     }
-    const task = pending.then(async () => {
+    const run = async () => {
       try {
         return await handler(...args);
       } catch (error) {
         await logError(error);
         const messages: string[] = [strings.invalidProject, strings.unsupportedVersion, strings.invalidName,
-          strings.alreadyExists, strings.invalidSize, strings.recentUnavailable];
+          strings.alreadyExists, strings.invalidSize, strings.recentUnavailable, strings.exportExists,
+          strings.exportMissing, strings.exportFailed];
         const message = error instanceof Error && messages.includes(error.message) ? error.message :
           error instanceof Error && error.name === 'ZodError' ? strings.invalidName : strings.operationFailed;
         throw new Error(message);
       }
-    });
-    pending = task.catch(() => undefined);
+    };
+    const task = serial ? pending.then(run) : run();
+    if (serial) pending = task.catch(() => undefined);
     return task;
   });
 }
@@ -147,6 +155,39 @@ function registerHandlers(settings: Settings) {
     return settings.forget(file);
   });
   register('reveal', async (file) => { shell.showItemInFolder(known(file)); });
+  register('chooseExport', async (value) => {
+    if (!active) throw new Error(strings.exportFailed);
+    const settings = exportSettingsSchema.parse(value);
+    const ext = settings.mode === 'audio' ? settings.audioFormat : videoExtension(settings.videoFormat);
+    const directory = join(dirname(active.file), 'exports');
+    await mkdir(directory, { recursive: true });
+    const result = await dialog.showSaveDialog(window!, {
+      defaultPath: join(directory, active.project.name.replace(/[<>:"/\\|?*]/g, '_') + '.' + ext),
+      filters: [{ name: strings.exportFiles, extensions: [ext] }],
+    });
+    exportPath = result.filePath;
+    return exportPath;
+  });
+  register('startExport', async (settings, file, rasters) => {
+    if (exporting || !active || !exportPath || file !== exportPath) throw new Error(strings.exportFailed);
+    exportPath = undefined;
+    const controller = new AbortController();
+    exporting = controller;
+    try {
+      const result = await exportProject(active.project, settings, file, rasters,
+        (progress) => window?.webContents.send(exportProgressChannel, progress), controller.signal);
+      if (settings.openFolder && result.files[0]) shell.showItemInFolder(result.files[0]);
+      return result;
+    } catch (error) {
+      if (error instanceof Error && [strings.exportExists, strings.exportMissing].some((message) => message === error.message)) throw error;
+      await logError(error);
+      throw new Error(strings.exportFailed);
+    } finally {
+      exporting = undefined;
+    }
+  }, false);
+  register('cancelExport', async () => { exporting?.abort(); }, false);
+  register('openLog', async () => { shell.showItemInFolder(join(app.getPath('userData'), 'editor.log')); });
 }
 
 function createWindow() {
@@ -160,7 +201,7 @@ function createWindow() {
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event) => event.preventDefault());
-  window.on('closed', () => { window = undefined; active = undefined; });
+  window.on('closed', () => { exporting?.abort(); window = undefined; active = undefined; });
   void window.loadURL(url).catch(logError);
 }
 

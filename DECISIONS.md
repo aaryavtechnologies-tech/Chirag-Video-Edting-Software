@@ -9,4 +9,5 @@
 - M4 uses proxies at Half and Quarter quality when available. Full quality reads originals. Media decoding uses Chromium through a streaming project-media protocol.
 - M5 uses browser pitch-preserving playback for speed changes. Soloing an audio track suppresses other audio tracks and embedded video audio. A detached clip gets an independent timeline placement.
 - M6 saves text presets in the project file and represents fill opacity with alpha-channel colors so it fits the supplied file format.
+- M7 fits the project stage into the export frame when their aspect ratios differ. MP4 uses AAC and WebM uses Opus. Outputs are published only after verification, and existing files are protected.
 

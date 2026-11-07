@@ -11,7 +11,7 @@
     "compile": "electron-vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run tests/unit",
+    "test": "vitest run tests/unit tests/golden",
     "e2e": "npm run compile && playwright test"
   },
   "dependencies": {
@@ -54,3 +54,4 @@
     "vitest": "^3.2.7"
   }
 }
+

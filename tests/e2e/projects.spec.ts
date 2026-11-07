@@ -170,6 +170,38 @@ test('edits a title on the canvas and saves its gradient style', async ({}, test
         fill: expect.objectContaining({ type: 'gradient' }),
       }) }),
     ]);
+    await preview.click({ position: { x: 12, y: 12 } });
+    const output = join(projects, 'styled.mp4');
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: path });
+    }, output);
+    await page.getByRole('button', { name: s.export, exact: true }).click();
+    await page.getByRole('button', { name: s.chooseOutput }).click();
+    await expect(page.getByText(s.exportDone)).toBeVisible();
+    if (!ffmpeg) throw new Error('FFmpeg not available');
+    const frame = join(projects, 'export-frame.png');
+    await promisify(execFile)(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-ss', '1', '-i', output,
+      '-frames:v', '1', '-update', '1', frame]);
+    const png = (await readFile(frame)).toString('base64');
+    const coverage = await preview.evaluate(async (canvas: HTMLCanvasElement, base64) => {
+      const image = new Image();
+      image.src = 'data:image/png;base64,' + base64;
+      await image.decode();
+      const rendered = document.createElement('canvas');
+      rendered.width = canvas.width;
+      rendered.height = canvas.height;
+      rendered.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const ink = (surface: HTMLCanvasElement) => {
+        const pixels = surface.getContext('2d')!.getImageData(0, 0, surface.width, surface.height).data;
+        let count = 0;
+        for (let index = 0; index < pixels.length; index += 4) if (pixels[index] > 80) count += 1;
+        return count;
+      };
+      return { preview: ink(canvas), export: ink(rendered) };
+    }, png);
+    expect(coverage.preview).toBeGreaterThan(100);
+    expect(coverage.export / coverage.preview).toBeGreaterThan(0.8);
+    expect(coverage.export / coverage.preview).toBeLessThan(1.2);
   } finally {
     await app.close();
   }

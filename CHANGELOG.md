@@ -1,5 +1,9 @@
 # Changelog
 
+## M7
+
+- Added FFmpeg video and audio export with shared Canvas text, progress, cancellation, range selection, and ffprobe verification.
+
 ## M6
 
 - Added text clips, on-canvas editing, bundled fonts, style presets, and a shared Canvas text rasterizer.

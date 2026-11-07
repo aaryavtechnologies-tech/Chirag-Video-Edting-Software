@@ -1,4 +1,5 @@
 import type { Asset, Project, ProjectSettings } from './project';
+import type { ExportProgress, ExportResult, ExportSettings, TextPng } from './export';
 
 export type OpenProject = { file: string; project: Project };
 export type RecentProject = {
@@ -19,8 +20,10 @@ export const channels = {
   rename: 'projects:rename', duplicate: 'projects:duplicate', remove: 'projects:remove',
   reveal: 'projects:reveal',
   importMedia: 'media:import',
+  chooseExport: 'export:choose', startExport: 'export:start', cancelExport: 'export:cancel', openLog: 'log:open',
 } as const;
 export const mediaProgressChannel = 'media:progress';
+export const exportProgressChannel = 'export:progress';
 
 export interface DesktopApi {
   home(): Promise<HomeState>;
@@ -36,6 +39,11 @@ export interface DesktopApi {
   importMedia(projectId: string, files?: string[]): Promise<ImportResult>;
   filePath(file: File): string;
   onMediaProgress(listener: (progress: MediaProgress) => void): () => void;
+  chooseExport(value: ExportSettings): Promise<string | undefined>;
+  startExport(value: ExportSettings, file: string, rasters: TextPng[]): Promise<ExportResult>;
+  cancelExport(): Promise<void>;
+  openLog(): Promise<void>;
+  onExportProgress(listener: (progress: ExportProgress) => void): () => void;
 }
 
 declare global {
