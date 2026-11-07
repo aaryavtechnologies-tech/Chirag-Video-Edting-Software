@@ -240,10 +240,13 @@ test('styles, previews and exports a title with zoom and shrink animation', asyn
     await page.getByLabel(s.inlineText).fill('Sunset');
     await page.getByLabel(s.inlineText).press('Control+Enter');
     await expect(page.locator('.clip-text')).toHaveText('Sunset');
+    await page.getByRole('button', { name: s.animation, exact: true }).click();
     await page.getByLabel(s.enter).selectOption('zoomIn');
     await page.getByLabel(s.exit).selectOption('shrinkOut');
+    await page.getByRole('button', { name: s.position, exact: true }).click();
     await page.getByLabel(s.rotation).fill('12');
     await page.getByLabel(s.rotation).press('Enter');
+    await page.getByRole('button', { name: s.animation, exact: true }).click();
     await page.getByRole('button', { name: s.previewAnimation }).click();
     await expect(page.getByRole('button', { name: s.pause, exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: s.play, exact: true })).toBeVisible({ timeout: 6000 });

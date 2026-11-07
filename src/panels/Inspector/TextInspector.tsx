@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { strings as s } from '../../lib/strings';
-import { builtInStyles, bundledFonts } from '../../lib/textPresets';
+import { builtInStyles } from '../../lib/textPresets';
+import { bundledFonts } from '../../text/fontCatalog';
+import { FontPicker } from '../../text/FontPicker';
+import { TextLayerControls } from '../../text/TextLayerControls';
+import { textStyleSchema } from '../../lib/schema';
 import { entrances, exits } from '../../lib/textMotion';
 import { clipTransform, type Transform } from '../../preview/compositor';
 import { findClip } from '../../timeline/operations';
@@ -19,6 +23,10 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
 }) {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [fontError, setFontError] = useState(false);
+  const [fontPicker, setFontPicker] = useState(false);
+  const [tab, setTab] = useState<'basic' | 'styles' | 'position' | 'animation'>('styles');
+  const [presetName, setPresetName] = useState('');
+  const [presetError, setPresetError] = useState(false);
   const style = clip.style ?? {};
   const transform = clipTransform(clip);
   const locked = findClip(project, clip.id)?.track.locked;
@@ -51,7 +59,11 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
 
   return <aside className="inspector">
     <h2 className="font-semibold">{s.styles}</h2>
-    <fieldset disabled={locked}>
+    <div className="inspector-tabs">
+      {(['basic', 'styles', 'position', 'animation'] as const).map((item) =>
+        <button key={item} aria-pressed={tab === item} onClick={() => setTab(item)}>{s[item]}</button>)}
+    </div>
+    <fieldset disabled={locked} hidden={tab !== 'animation'}>
       <legend>{s.animation}</legend>
       <Choice label={s.enter} value={style.animationIn ?? 'none'} values={entrances}
         change={(animationIn) => set({ animationIn })} />
@@ -64,7 +76,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       <button onClick={previewAnimation} disabled={(!style.animationIn || style.animationIn === 'none') &&
         (!style.animationOut || style.animationOut === 'none')}>{s.previewAnimation}</button>
     </fieldset>
-    <fieldset disabled={locked}>
+    <fieldset disabled={locked} hidden={tab !== 'styles'}>
       <legend>{s.presets}</legend>
       <div className="style-presets">{Object.entries(builtInStyles).map(([key, value]) => {
         const gradient = value.fill?.gradient;
@@ -84,11 +96,44 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
           {s.styleNames[key]}
         </button>;
       })}</div>
-      <button onClick={() => edit((draft) => { (draft.textPresets ??= []).push({ ...style }); })}>{s.saveStyle}</button>
+      <label>{s.presetName}<input value={presetName} onChange={(event) => setPresetName(event.target.value)} maxLength={80} /></label>
+      <button onClick={() => edit((draft) => {
+        const presets = draft.textPresets ?? (draft.textPresets = []);
+        presets.push({ ...style, presetName: presetName.trim() || s.savedStyle + ' ' + (presets.length + 1) });
+      })}>{s.saveStyle}</button>
       {project.textPresets?.map((preset, index) =>
-        <button key={index} onClick={() => apply(preset)}>{s.savedStyle} {index + 1}</button>)}
+        <div className="grid gap-1" key={index}>
+          <button onClick={() => apply(preset)}>{preset.presetName ?? s.savedStyle + ' ' + (index + 1)}</button>
+          <div className="flex gap-1">
+            <button disabled={!presetName.trim()} onClick={() => edit((draft) => {
+              if (draft.textPresets?.[index]) draft.textPresets[index].presetName = presetName.trim();
+            })}>{s.rename}</button>
+            <button onClick={() => edit((draft) => { draft.textPresets?.splice(index, 1); })}>{s.delete}</button>
+          </div>
+        </div>)}
+      <button onClick={() => {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(style, null, 2)], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = (presetName.trim() || 'style').replace(/[^\p{L}\p{N}._ -]/gu, '_') + '.vstyle';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }}>{s.exportStyle}</button>
+      <label>{s.importStyle}<input type="file" accept=".vstyle" onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        setPresetError(false);
+        void (async () => {
+          if (file.size > 1_000_000) throw new Error(s.invalidStyle);
+          const preset = textStyleSchema.parse(JSON.parse((await file.text()).replace(/^\uFEFF/, '')));
+          edit((draft) => { (draft.textPresets ??= []).push({ presetName: file.name.replace(/\.vstyle$/i, ''), ...preset }); });
+          apply(preset);
+        })().catch(() => setPresetError(true));
+      }} /></label>
+      {presetError && <p className="error" role="alert">{s.invalidStyle}</p>}
     </fieldset>
-    <fieldset disabled={locked}>
+    <fieldset disabled={locked} hidden={tab !== 'basic'}>
       <legend>{s.content}</legend>
       <label>{s.text}<textarea key={clip.text} defaultValue={clip.text} rows={3} maxLength={5000}
         onBlur={(event) => change((item) => { item.text = event.target.value; })} /></label>
@@ -98,8 +143,16 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
         change={(lineHeight) => set({ lineHeight })} />
       <NumberField label={s.letterSpacing} value={style.letterSpacing ?? 0} min={-100} max={100}
         change={(letterSpacing) => set({ letterSpacing })} />
+      <NumberField label={s.wordSpacing} value={style.wordSpacing ?? 0} min={-40} max={150}
+        change={(wordSpacing) => set({ wordSpacing })} />
+      <Choice label={s.direction} value={style.direction ?? 'auto'} values={['auto', 'ltr', 'rtl']}
+        change={(direction) => set({ direction })} />
+      <NumberField label={s.boxWidth} value={style.boxWidth ?? 0} min={0} max={7680} change={(boxWidth) => set({ boxWidth })} />
+      <NumberField label={s.boxHeight} value={style.boxHeight ?? 0} min={0} max={7680} change={(boxHeight) => set({ boxHeight })} />
+      <Choice label={s.verticalAlign} value={style.verticalAlign ?? 'top'} values={['top', 'middle', 'bottom']}
+        change={(verticalAlign) => set({ verticalAlign })} />
     </fieldset>
-    <fieldset disabled={locked}>
+    <fieldset disabled={locked} hidden={tab !== 'basic'}>
       <legend>{s.font}</legend>
       <label>{s.fontFamily}<input key={style.fontFamily} defaultValue={style.fontFamily ?? 'Inter'}
         list="editor-fonts" onBlur={(event) => set({ fontFamily: event.target.value.trim() || 'Inter' })}
@@ -107,6 +160,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
         <datalist id="editor-fonts">{[...new Set([...bundledFonts, ...systemFonts])].map((family) =>
           <option key={family} value={family} />)}</datalist>
       </label>
+      <button onClick={() => setFontPicker(true)}>{s.chooseFont}</button>
       <button onClick={() => void queryFonts()}>{s.systemFonts}</button>
       {fontError && <p className="muted">{s.fontUnavailable}</p>}
       <NumberField label={s.fontSize} value={style.fontSize ?? 64} min={1} max={1024}
@@ -114,7 +168,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       {(['bold', 'italic', 'underline', 'uppercase'] as const).map((key) =>
         <Toggle key={key} label={s[key]} checked={!!style[key]} change={(value) => set({ [key]: value })} />)}
     </fieldset>
-    <fieldset disabled={locked}>
+    <fieldset disabled={locked} hidden={tab !== 'styles'}>
       <legend>{s.fill}</legend>
       <Choice label={s.fillType} value={gradient ? 'gradient' : 'solid'} values={['solid', 'gradient']}
         change={(type) => type === 'gradient' ? setGradient({}) : set({ fill: { type, color: fill } })} />
@@ -128,6 +182,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
         change={(opacity) => gradient ? setGradient({ from: withAlpha(from, opacity), to: withAlpha(to, opacity) })
           : set({ fill: { type: 'solid', color: withAlpha(fill, opacity) } })} />
     </fieldset>
+    <div hidden={tab !== 'styles'}>
     <Effect label={s.stroke} value={style.stroke} defaults={defaults.stroke} disabled={locked}
       change={(stroke) => set({ stroke })} fields={{ width: [s.width, 0, 100, 1] }} />
     <Effect label={s.shadow} value={style.shadow} defaults={defaults.shadow} disabled={locked}
@@ -139,6 +194,13 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       change={(background) => set({ background })} fields={{ opacity: [s.opacity, 0, 1, 0.01],
         padding: [s.padding, 0, 120, 1], radius: [s.radius, 0, 120, 1] }} />
     <fieldset disabled={locked}>
+      <TextLayerControls style={style} set={set} />
+      <NumberField label={s.outlineOffset} value={style.outlineOffset ?? 0} min={0} max={50}
+        change={(outlineOffset) => set({ outlineOffset })} />
+      <NumberField label={s.curve} value={style.curve ?? 0} min={-100} max={100} change={(curve) => set({ curve })} />
+    </fieldset>
+    </div>
+    <fieldset disabled={locked} hidden={tab !== 'position'}>
       <legend>{s.transform}</legend>
       {([
         ['x', s.positionX, 0, 1, 0.01], ['y', s.positionY, 0, 1, 0.01],
@@ -148,6 +210,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
         <NumberField key={key} label={label} min={min} max={max} step={step} value={transform[key]}
           change={(value) => move(key, value)} />)}
     </fieldset>
+    {fontPicker && <FontPicker text={clip.text ?? ''} select={(fontFamily) => set({ fontFamily })} close={() => setFontPicker(false)} />}
   </aside>;
 }
 

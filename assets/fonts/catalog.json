@@ -1,0 +1,57 @@
+{
+  "sans": [
+    "Inter",
+    "Poppins",
+    "Montserrat",
+    "Roboto",
+    "Archivo",
+    "Barlow",
+    "Cabin",
+    "DM Sans",
+    "Fira Sans",
+    "Lato",
+    "Manrope",
+    "Nunito",
+    "Outfit",
+    "Raleway",
+    "Rubik",
+    "Source Sans 3",
+    "Space Grotesk",
+    "Work Sans"
+  ],
+  "serif": [
+    "Playfair Display",
+    "Alegreya",
+    "Cormorant Garamond",
+    "Libre Baskerville",
+    "Lora",
+    "Merriweather"
+  ],
+  "display": [
+    "Oswald",
+    "Abril Fatface",
+    "Josefin Sans",
+    "Rajdhani"
+  ],
+  "handwriting": [
+    "Lobster",
+    "Pacifico",
+    "Caveat",
+    "Dancing Script",
+    "Great Vibes"
+  ],
+  "mono": [
+    "Roboto Mono",
+    "Fira Code",
+    "IBM Plex Mono"
+  ],
+  "boldImpact": [
+    "Anton",
+    "Bebas Neue"
+  ],
+  "regionalFonts": [
+    "Noto Sans Arabic",
+    "Noto Sans Devanagari",
+    "Noto Sans Gujarati"
+  ]
+}

@@ -26,16 +26,28 @@ export const transformSchema = object({
   x: num, y: num, scale: num, rotation: num, opacity: z.number().min(0).max(1).optional(),
 });
 
+const textFill = object({
+  type: z.enum(['solid', 'gradient']).optional(), color: str, opacity: z.number().min(0).max(1).optional(),
+  gradient: object({
+    from: str, to: str, angle: num, kind: z.enum(['linear', 'radial']).optional(),
+    stops: z.array(object({ color: z.string(), offset: z.number().min(0).max(1) })).min(2).max(4).optional(),
+  }).optional(),
+});
+const textStroke = object({ color: str, width: num, alignment: z.enum(['outside', 'center', 'inside']).optional() });
+const textShadow = object({ color: str, blur: num, offsetX: num, offsetY: num, opacity: num });
+
 export const textStyleSchema = object({
   fontFamily: str, fontSize: num, bold: bool, italic: bool, underline: bool,
   uppercase: bool, align: z.enum(['left', 'center', 'right']).optional(),
-  lineHeight: num, letterSpacing: num,
-  fill: object({
-    type: z.enum(['solid', 'gradient']).optional(), color: str,
-    gradient: object({ from: str, to: str, angle: num }).optional(),
-  }).optional(),
-  stroke: object({ color: str, width: num }).optional(),
-  shadow: object({ color: str, blur: num, offsetX: num, offsetY: num, opacity: num }).optional(),
+  lineHeight: num, letterSpacing: num, wordSpacing: num,
+  boxWidth: num, boxHeight: num, verticalAlign: z.enum(['top', 'middle', 'bottom']).optional(),
+  direction: z.enum(['auto', 'ltr', 'rtl']).optional(), curve: num, outlineOffset: num,
+  fill: textFill.optional(), fills: z.array(textFill).max(3).optional(),
+  stroke: textStroke.optional(), strokes: z.array(textStroke).max(3).optional(),
+  shadow: textShadow.optional(), shadows: z.array(textShadow).max(4).optional(),
+  extrude: object({ color: str, depth: num, angle: num }).optional(),
+  wordStyles: z.array(object({ index: z.number().int().nonnegative(), color: z.string() })).optional(),
+  presetName: str,
   glow: object({ color: str, blur: num }).optional(),
   background: object({ color: str, opacity: num, padding: num, radius: num }).optional(),
   animationIn: z.enum(entrances).optional(),

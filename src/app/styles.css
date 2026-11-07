@@ -53,6 +53,17 @@ input[type="color"] { width: 100%; height: 2.75rem; }
 .style-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; max-height: 14rem; overflow: auto; padding: .2rem; }
 .style-presets button { padding: .25rem; font-size: .75rem; }
 .preset-swatch { display: block; margin: 0 auto .15rem; width: fit-content; padding: 0 .25rem; border-radius: 4px; font-size: 1.15rem; }
+.inspector-tabs { display:flex; flex-wrap:wrap; gap:var(--space-1); margin-top:var(--space-2); }
+.inspector-tabs button { font-size:.75rem; padding:.28rem .42rem; }
+.inspector-tabs [aria-pressed="true"], .font-results [aria-pressed="true"] { background:var(--accent); color:white; }
+.inspector [hidden] { display:none; }
+.style-layers { min-width:0; }
+.style-layers fieldset { padding:var(--space-2); }
+.style-layers input, .style-layers select { width:100%; }
+.font-results { display:grid; gap:var(--space-1); max-height:50vh; overflow:auto; }
+.font-results li { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--space-1); }
+.font-results li button:first-child { min-width:0; text-align:left; }
+.font-sample { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:1.2rem; }
 .inspector textarea { min-width: 0; width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: .4rem; }
 .inline-text { position: absolute; transform: translate(-50%, -50%); max-width: 90%; padding: .5rem; border: 1px solid #a297ff; background: #161729df; color: white; border-radius: 8px; }
 .media-header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .8rem; }

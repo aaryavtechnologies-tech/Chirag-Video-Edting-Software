@@ -5,7 +5,7 @@ import { frameRates } from '../lib/schema';
 import { projectDuration } from '../timeline/operations';
 import type { Project } from '../types/project';
 import type { ExportProgress, ExportResult, ExportSettings, TextPng } from '../types/export';
-import { loadTextFont, rasterizeText } from './textRasterizer';
+import { loadTextFont, rasterizeText } from '../text/rasteriser';
 import { estimateExportBytes, exportPresets, exportSizes, qualityFactors, suggestedBitrate } from './exportPresets';
 
 const videoFormats = { h264: 'MP4 · H.264', hevc: 'MP4 · H.265 / HEVC', vp9: 'WebM · VP9' } as const;
