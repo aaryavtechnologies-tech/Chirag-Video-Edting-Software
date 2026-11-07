@@ -29,13 +29,13 @@ describe('project files', () => {
     const file = join(folder, 'bad.vedit');
     await writeFile(file, '{');
     await expect(loadProject(file)).rejects.toThrow(strings.invalidProject);
-    expect(() => parseProject({ version: 2 })).toThrow(strings.unsupportedVersion);
+    expect(() => parseProject({ version: 99 })).toThrow(strings.unsupportedVersion);
     expect(() => parseProject({ version: 1 })).toThrow(strings.invalidProject);
   });
 
   it('keeps optional fields optional and preserves nested extra properties', () => {
     const value = { version: 1, id: '', name: '', settings: { ...settings, hdr: false }, assets: [], tracks: [] };
-    expect(parseProject(value)).toEqual(value);
+    expect(parseProject(value)).toEqual({ ...value, version: 2, captionTracks: [], layout: { mode: 'auto' } });
     expect(() => parseProject({ ...value, settings: { ...settings, fps: 29.97 } }))
       .toThrow(strings.invalidProject);
     expect(() => parseProject({ ...value, tracks: [{ id: 't', name: 'V1', kind: 'video',

@@ -17,10 +17,12 @@ it.each([{ width: 1920, height: 1080, fps: 30 as const, bitrate: 10, hardware: f
       'color=c=red:s=640x360:r=30:d=3', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3',
       '-c:v', 'libx264', '-c:a', 'aac', '-threads', '2', path]);
     const project: Project = {
-      id: 'golden', name: 'Golden', version: 1, settings: { width: 1920, height: 1080, fps: 30 },
+      id: 'golden', name: 'Golden', version: 2, settings: { width: 1920, height: 1080, fps: 30 },
       assets: [{ id: 'source', type: 'video', path, width: 640, height: 360, duration: 3, hasAudio: true }],
       tracks: [{ id: 'track', name: 'V1', kind: 'video', clips: [
-        { id: 'clip', type: 'video', assetId: 'source', start: 0, duration: 3 },
+        { id: 'clip', type: 'video', assetId: 'source', start: 0, duration: 3,
+          ...(video.height === 1080 && { visual: { crop: { x: 0.1, width: 0.8 },
+            saturation: 0.5, brightness: 0.06, temperature: 0.1, blur: 1, vignette: 0.2, motion: 'wipe' as const, flipX: true } }) },
       ] }],
     };
     const settings: ExportSettings = { mode: 'both', videoFormat: 'h264', audioFormat: 'mp3',
@@ -42,7 +44,7 @@ it('cancels an active encoder and removes partial and final output', async () =>
   const folder = await mkdtemp(join(tmpdir(), 'video-editor-cancel-'));
   try {
     const project: Project = {
-      id: 'cancel', name: 'Cancel', version: 1, settings: { width: 3840, height: 2160, fps: 60 },
+      id: 'cancel', name: 'Cancel', version: 2, settings: { width: 3840, height: 2160, fps: 60 },
       assets: [], tracks: [{ id: 'track', name: 'V1', kind: 'video', hidden: true,
         clips: [{ id: 'clip', type: 'text', text: 'Length', start: 0, duration: 12 }] }],
     };
@@ -66,7 +68,7 @@ it('exports a three-second audio-only MP3 with track solo and clip mute', async 
     await runMediaTool('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
       'sine=frequency=440:duration=3', path]);
     const project: Project = {
-      id: 'audio', version: 1, name: 'Audio', settings: { width: 1920, height: 1080, fps: 30 },
+      id: 'audio', version: 2, name: 'Audio', settings: { width: 1920, height: 1080, fps: 30 },
       assets: [{ id: 'tone', type: 'audio', path, duration: 3 }],
       tracks: [
         { id: 'solo', name: 'A1', kind: 'audio', solo: true, clips: [

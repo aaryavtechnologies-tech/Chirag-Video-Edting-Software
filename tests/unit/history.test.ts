@@ -5,7 +5,7 @@ import type { Project } from '../../src/types/project';
 
 it('undoes and redoes 20 mixed edits without changing either checkpoint', () => {
   const project: Project = {
-    id: 'history', version: 1, name: 'History', assets: [], settings: { width: 1920, height: 1080, fps: 30 },
+    id: 'history', version: 2, name: 'History', assets: [], settings: { width: 1920, height: 1080, fps: 30 },
     tracks: [
       { id: 'video', name: 'V1', kind: 'video', clips: Array.from({ length: 5 }, (_, index) =>
         ({ id: 'image' + index, type: 'image', start: index * 5, duration: 2 })) },

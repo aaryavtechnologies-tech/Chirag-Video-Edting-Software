@@ -26,7 +26,7 @@ export function Waveform({ asset, clip }: { asset: Asset; clip: Clip }) {
   const bars = Array.from({ length: count }, (_, index) => {
     const start = Math.floor((first + duration * index / count) / wave.step);
     const end = Math.ceil((first + duration * (index + 1) / count) / wave.step);
-    const height = Math.max(0.7, Math.max(0, ...wave.peaks.slice(start, end)) * 11);
+    const height = Math.min(11, Math.max(0.7, Math.max(0, ...wave.peaks.slice(start, end)) * 11 * (clip.waveformZoom ?? 1)));
     return `M${index + 0.5} ${12 - height}v${height * 2}`;
   }).join(' ');
   return <svg className="clip-wave" viewBox={`0 0 ${count} 24`} preserveAspectRatio="none" aria-hidden="true">

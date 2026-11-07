@@ -29,6 +29,10 @@ The media bin imports local video, images, and audio using bundled FFmpeg and ff
 
 Select a text clip to open **Styles**. Choose a preset, then set **Animation in**, **Animation out**, and the duration. **Preview animation** plays the selected clip in the editor so you can check both ends before export.
 
+The expanded workspace includes a caption dock, searchable Layers panel, command palette (**Ctrl+K**), and shortcut sheet (**?**). Choose **View → Layout** to override automatic landscape or portrait selection. Version 1 projects migrate to version 2 in memory and save in the new format.
+
+See [Captions](docs/CAPTIONS.md) and [Animations](docs/ANIMATIONS.md) for workflows and extension points.
+
 ## Export
 
 The renderer rasterizes styled text to transparent PNGs with the Canvas code used for preview. The main process builds an FFmpeg filter script from the project JSON and combines original media, PNG overlays, and the audio mix. It verifies staged output with ffprobe before publishing it. You can export video with audio, audio only, or both files in one run. Cancelling removes the staged output.

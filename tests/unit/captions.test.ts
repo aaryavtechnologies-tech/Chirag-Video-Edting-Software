@@ -5,7 +5,7 @@ import { estimateWords } from '../../src/captions/wordTiming';
 import type { Project } from '../../src/types/project';
 
 const project: Project = {
-  version: 1, id: 'test', name: 'Captions', assets: [], tracks: [],
+  version: 2, id: 'test', name: 'Captions', assets: [], tracks: [],
   settings: { width: 1080, height: 1920, fps: 30 },
 };
 

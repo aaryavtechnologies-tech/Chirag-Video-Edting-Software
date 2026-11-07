@@ -6,6 +6,7 @@ import { FontPicker } from '../../text/FontPicker';
 import { TextLayerControls } from '../../text/TextLayerControls';
 import { textStyleSchema } from '../../lib/schema';
 import { AnimationInspector } from '../../animation/AnimationInspector';
+import { ColorPicker } from '../../design-system/ColorPicker';
 import { entrances, exits } from '../../lib/textMotion';
 import { clipTransform, type Transform } from '../../preview/compositor';
 import { findClip } from '../../timeline/operations';
@@ -262,7 +263,7 @@ function withAlpha(value: string, opacity: number) {
 }
 
 function ColorField({ label, value, change }: { label: string; value?: string; change(value: string): void }) {
-  return <label>{label}<input type="color" value={hex(value)} onChange={(event) => change(event.target.value)} /></label>;
+  return <ColorPicker label={label} value={hex(value)} change={change} />;
 }
 
 function Effect({ label, value, defaults: initial, fields, disabled, change }: {

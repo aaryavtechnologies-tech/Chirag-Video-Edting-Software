@@ -7,7 +7,7 @@ import { activeLayers, clipTransform, drawLayer, layerSize, type Transform } fro
 import { drawHandles, hitHandle, type Handle } from './handles';
 import { MediaElements } from './mediaElements';
 import type { usePlayback } from './usePlayback';
-import { loadTextFont, rasterizeText } from '../text/rasteriser';
+import { loadClipFont, rasterClip } from '../text/rasterClip';
 import { animateText } from '../lib/textMotion';
 import { drawAnimatedText } from '../text/drawAnimatedText';
 import type { Clip } from '../types/project';
@@ -33,6 +33,12 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
   const [quality, setQuality] = useState<Quality>('half');
+  const [viewZoom, setViewZoom] = useState('fit');
+  const [grid, setGrid] = useState(false);
+  const [rulers, setRulers] = useState(false);
+  const space = useRef(false);
+  const pan = useRef<{ x: number; y: number; left: number; top: number }>();
+  const panned = useRef(false);
   useEffect(() => { onQuality?.(quality); }, [quality, onQuality]);
   const [inline, setInline] = useState<string>();
   const texts = useRef(new Map<string, { key: string; canvas: HTMLCanvasElement }>());
@@ -47,15 +53,15 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
   const canvasHeight = Math.round(height / divisor);
 
   function textSurface(clip: Clip) {
-    const key = JSON.stringify([clip.text, clip.style, divisor]);
+    const key = JSON.stringify([clip.text, clip.style, clip.shape, divisor]);
     const cached = texts.current.get(clip.id);
     if (cached?.key === key) return cached.canvas;
-    const surface = rasterizeText(clip.text ?? '', clip.style, 1 / divisor);
+    const surface = rasterClip(clip, 1 / divisor);
     if (texts.current.size >= 16) texts.current.delete(texts.current.keys().next().value!);
     texts.current.set(clip.id, { key, canvas: surface });
-    void loadTextFont(clip.text ?? '', clip.style).then(() => {
+    void loadClipFont(clip).then(() => {
       const current = texts.current.get(clip.id);
-      if (current?.canvas === surface) current.canvas = rasterizeText(clip.text ?? '', clip.style, 1 / divisor);
+      if (current?.canvas === surface) current.canvas = rasterClip(clip, 1 / divisor);
       redraw.current();
     });
     return surface;
@@ -232,12 +238,38 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
   const editing = inline && findClip(project, inline)?.clip;
 
   return <div className="editor-stage">
-    <div className="preview-surface" style={{ aspectRatio: width / height, '--preview-ratio': width / height } as React.CSSProperties}>
+    <div className="preview-viewport" tabIndex={0} aria-label={s.previewTools} onBlur={() => { space.current = false; }}
+      onKeyDown={(event) => {
+        if (event.code !== 'Space' || event.target !== event.currentTarget) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) { space.current = true; panned.current = false; }
+      }} onKeyUp={(event) => {
+        if (event.code !== 'Space' || !space.current) return;
+        event.preventDefault();
+        space.current = false;
+        if (!panned.current) toggle();
+      }} onPointerDownCapture={(event) => {
+        if (!space.current || event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const viewport = event.currentTarget;
+        pan.current = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
+        viewport.setPointerCapture(event.pointerId);
+      }} onPointerMove={(event) => {
+        if (!pan.current) return;
+        event.stopPropagation();
+        panned.current = true;
+        event.currentTarget.scrollLeft = pan.current.left - event.clientX + pan.current.x;
+        event.currentTarget.scrollTop = pan.current.top - event.clientY + pan.current.y;
+      }} onLostPointerCapture={() => { pan.current = undefined; }}>
+    <div className="preview-surface" style={{ aspectRatio: width / height, '--preview-ratio': width / height,
+      width: viewZoom === 'fit' ? undefined : Math.round(width * Number(viewZoom) / 100) } as React.CSSProperties}>
       <canvas ref={canvas} aria-label={s.preview} width={canvasWidth} height={canvasHeight}
         onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => setDrag(undefined)}
         onDoubleClick={() => {
           const target = selected && findClip(project, selected);
-          if (target && target.clip.type === 'text' && !target.track.locked) setInline(target.clip.id);
+          if (target && target.clip.type === 'text' && !target.clip.shape && !target.track.locked) setInline(target.clip.id);
         }} />
       {editing && <textarea className="inline-text" aria-label={s.inlineText} defaultValue={editing.text}
         style={{ left: `${clipTransform(editing).x * 100}%`, top: `${clipTransform(editing).y * 100}%` }}
@@ -256,12 +288,21 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
       {status && <span className="preview-status" role="status">{status}</span>}
       {safeGuides && <div className={`safe-guide ${width <= height ? 'platform-safe' : ''}`} role="img"
         aria-label={width <= height ? s.platformSafe : s.titleSafe} />}
+      {grid && <div className="preview-grid" aria-hidden="true" />}
+      {rulers && <div className="preview-rulers" aria-hidden="true" />}
+    </div>
     </div>
     <div className="transport">
       <button onClick={() => step(-1)} aria-label={s.previousFrame}>⏮</button>
       <button disabled={duration <= 0} onClick={toggle}>{playing ? s.pause : s.play}</button>
       <button onClick={() => step(1)} aria-label={s.nextFrame}>⏭</button>
       <button aria-pressed={loop} onClick={() => setLoop(!loop)}>{s.loop}</button>
+      <label>{s.zoom}<select value={viewZoom} onChange={(event) => setViewZoom(event.target.value)}>
+        <option value="fit">{s.fitTimeline}</option>
+        {['50', '100', '200'].map((zoom) => <option key={zoom} value={zoom}>{zoom}%</option>)}
+      </select></label>
+      <button aria-pressed={grid} onClick={() => setGrid(!grid)}>{s.grid}</button>
+      <button aria-pressed={rulers} onClick={() => setRulers(!rulers)}>{s.rulers}</button>
       <span className="muted">{timecode(playhead, fps)}</span>
       <label>{s.quality}<select value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
         {(Object.keys(qualityDivisors) as Quality[]).map((key) => <option key={key} value={key}>{s[key]}</option>)}

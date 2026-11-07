@@ -5,14 +5,14 @@ import { rasterizeText, loadTextFont } from '../text/rasteriser';
 import { drawAnimatedText } from '../text/drawAnimatedText';
 import type { AnimationSet } from './schema';
 
-export function AnimationPreview({ text, animation, style, play }: {
-  text: string; animation: AnimationSet; style?: TextStyle; play: boolean;
+export function AnimationPreview({ text, animation, style, play, caption }: {
+  text: string; animation: AnimationSet; style?: TextStyle; play: boolean; caption?: Clip['caption'];
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current!;
     const ctx = canvas.getContext('2d')!;
-    const clip: Clip = { id: 'sample', type: 'text', start: 0, duration: 2.6, text, animation, style };
+    const clip: Clip = { id: 'sample', type: 'text', start: 0, duration: 2.6, text, animation, style, caption };
     let raster = rasterizeText(text, { ...style, fontSize: 18, boxWidth: 0, boxHeight: 0 }, 1);
     let visible = false;
     let disposed = false;
@@ -43,6 +43,6 @@ export function AnimationPreview({ text, animation, style, play }: {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [text, animation, style, play]);
+  }, [text, animation, style, play, caption]);
   return <canvas width={132} height={52} ref={ref} aria-hidden="true" className="animation-sample" />;
 }

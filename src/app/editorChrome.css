@@ -10,3 +10,18 @@
 .command-list button { display:flex; justify-content:space-between; text-align:left; }
 .editor-status { display:flex; flex-wrap:wrap; gap:var(--space-3); align-items:center; background:var(--panel); color:var(--muted); border-top:1px solid var(--line); padding:var(--space-1) var(--space-3); font-size:.75rem; font-variant-numeric:tabular-nums; }
 .dock-empty { padding:var(--space-4); }
+.shortcut-sheet { display:grid; gap:var(--space-1); margin-top:var(--space-3); }
+.shortcut-sheet div { display:flex; justify-content:space-between; gap:var(--space-3); padding:var(--space-1); }
+.shortcut-sheet kbd { color:var(--muted); }
+.layer-group { display:grid; gap:var(--space-1); margin-top:var(--space-2); }
+.layer-heading { display:flex; gap:3px; align-items:center; cursor:grab; }
+.layer-heading input { width:100%; min-width:0; }
+.layer-heading .tool-icon { flex:none; width:28px; }
+.layer-clip { margin-left:var(--space-2); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.layer-clip[aria-pressed="true"] { background:var(--accent); color:white; }
+.inspector-switch { display:flex; gap:var(--space-1); padding:var(--space-1); background:var(--panel); }
+.inspector-switch button { padding:.25rem .5rem; font-size:.78rem; }
+.inspector-switch [aria-pressed="true"] { background:var(--accent); color:white; }
+.color-field { display:grid; gap:var(--space-1); }
+.color-swatches { display:flex; flex-wrap:wrap; gap:var(--space-1); }
+.color-swatches button { width:29px; height:29px; padding:0; border-radius:5px; }

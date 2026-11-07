@@ -41,7 +41,7 @@ if (!exists) {
   const track = (name, order, clips) =>
     ({ id: name.toLowerCase(), name, order, kind: name.startsWith('V') ? 'video' : 'audio', clips });
   const project = {
-    version: 1, id: 'video-editor-demo', name: 'Video Editor Demo',
+    version: 2, id: 'video-editor-demo', name: 'Video Editor Demo',
     settings: { width: 3840, height: 2160, fps: 60, background: '#10111a', sampleRate: 48000 },
     assets,
     tracks: [

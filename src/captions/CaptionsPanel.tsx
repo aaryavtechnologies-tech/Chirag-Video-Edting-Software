@@ -14,9 +14,11 @@ type Edit = (recipe: (draft: Project) => void) => void;
 function TemplateCard({ template, pressed, select }: { template: CaptionTemplate; pressed: boolean; select(): void }) {
   const [hover, setHover] = useState(false);
   const animation = useMemo(() => template.animation ?? {}, [template]);
+  const text = template.thumbnailText ?? s.gallerySample;
+  const caption = useMemo(() => ({ words: estimateWords(text, 2.6), wordEffect: template.wordEffect }), [text, template.wordEffect]);
   return <button aria-pressed={pressed} onClick={select} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
     onFocus={() => setHover(true)} onBlur={() => setHover(false)}>
-    <AnimationPreview text={template.thumbnailText ?? s.gallerySample} animation={animation} style={template.style} play={hover} />
+    <AnimationPreview text={text} animation={animation} style={template.style} caption={caption} play={hover} />
     {template.name}
   </button>;
 }

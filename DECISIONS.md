@@ -7,6 +7,8 @@
 - P5 stores captions separately from ordinary clips. The preview derives text layers from caption segments and their effective templates. Word timestamps are relative to each segment.
 - P6 preserves overlapping cues. Frame-rate conversion preserves frame numbers by multiplying imported timestamps by source FPS divided by project FPS. A sidecar SRT uses the same export range as the video.
 - P7 sends pre-composited PNG frames to the main process in small batches. Static clips use one PNG, and identical frames in an animation hold reuse the staged raster.
+- P8 migrates v1 on read and saves v2. Video adjustments use the closest Canvas and FFmpeg filters. Fade to background uses the project's background, and cross-fade uses overlapping layers.
+- The vertical preview uses a shared platform-safe guide. Texture fill, masks, reverse playback, and EQ presets are outside this implementation. The 4K60 regression covers the sample project, and animation preview throughput has no formal 60-fps benchmark.
 
 - The text update extends the existing animation enums in the project schema. Existing projects keep their animation settings. The new enum values require Video Editor 0.2.0 or later.
 

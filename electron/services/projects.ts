@@ -2,10 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import { projectSchema, projectSettingsSchema } from '../../src/lib/schema';
+import { migrateProject, projectSchema, projectSettingsSchema } from '../../src/lib/schema';
 import { strings } from '../../src/lib/strings';
 import type { NewProject, OpenProject, RecentProject } from '../../src/types/desktop';
 import type { Project } from '../../src/types/project';
+import { projectDuration } from '../../src/timeline/operations';
 
 export const ownedFolderMarker = '.video-editor-project';
 export const thumbnailKey = (file: string) => createHash('sha256').update(file).digest('hex');
@@ -16,10 +17,11 @@ export const nameSchema = z.string().trim().min(1).max(120).refine(
 );
 
 export function parseProject(value: unknown): Project {
-  if (typeof value === 'object' && value !== null && 'version' in value && value.version !== 1) {
+  const migrated = migrateProject(value);
+  if (typeof migrated === 'object' && migrated !== null && 'version' in migrated && migrated.version !== 2) {
     throw new Error(strings.unsupportedVersion);
   }
-  const result = projectSchema.safeParse(value);
+  const result = projectSchema.safeParse(migrated);
   if (!result.success) throw new Error(strings.invalidProject);
   return result.data;
 }
@@ -83,7 +85,7 @@ export async function createProject(request: NewProject, source?: Project): Prom
       { id: randomUUID(), kind: 'audio', name: strings.trackAudio + '1', order: 0, clips: [] },
     ];
     const project = parseProject({
-      ...source, version: 1, id, name, createdAt: now, updatedAt: now, settings, assets, tracks,
+      captionTracks: [], layout: { mode: 'auto' }, ...source, version: 2, id, name, createdAt: now, updatedAt: now, settings, assets, tracks,
     });
     await writeFile(join(folder, ownedFolderMarker), id, { flag: 'wx' });
     return await saveProject(join(folder, name + '.vedit'), project);
@@ -94,8 +96,7 @@ export async function createProject(request: NewProject, source?: Project): Prom
 }
 
 export function recentProject({ file, project }: OpenProject, thumbnail?: string): RecentProject {
-  const duration = project.tracks.reduce((end, track) =>
-    track.clips.reduce((latest, clip) => Math.max(latest, clip.start + clip.duration), end), 0);
+  const duration = projectDuration(project);
   const { width, height, background = '#000000' } = project.settings;
   return { file, name: project.name, editedAt: project.updatedAt ?? project.createdAt ?? '',
     duration, width, height, background, thumbnail };

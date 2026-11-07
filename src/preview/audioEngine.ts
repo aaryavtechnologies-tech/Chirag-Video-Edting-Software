@@ -47,6 +47,7 @@ export class AudioEngine {
           element.currentTime = Math.min(Math.max(0, target), element.duration);
         }
         element.playbackRate = speed;
+        element.preservesPitch = clip.preservePitch !== false;
         gain.gain.setTargetAtTime(audioGain(track, clip) * fadeOpacity(clip, time), this.context.currentTime, 0.005);
         if (element.paused && element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
           void element.play().catch(() => undefined);

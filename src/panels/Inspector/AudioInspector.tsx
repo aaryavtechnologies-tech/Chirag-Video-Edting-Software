@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Project, Track } from '../../types/project';
+import type { Clip, Project, Track } from '../../types/project';
 import { strings as s } from '../../lib/strings';
 import { changeSpeed, detachAudio } from '../../timeline/audioEdits';
 import { findClip } from '../../timeline/operations';
@@ -21,10 +21,11 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
     const target = draft.tracks.find((item) => item.id === track?.id);
     if (target) Object.assign(target, value);
   });
-  const updateClip = (value: { volume?: number; muted?: boolean; fadeIn?: number; fadeOut?: number }) => edit((draft) => {
+  const updateClip = (value: Partial<Clip>) => edit((draft) => {
     const target = clip && findClip(draft, clip.id);
     if (target && !target.track.locked) Object.assign(target.clip, value);
   });
+  const updateVisual = (value: Partial<NonNullable<Clip['visual']>>) => updateClip({ visual: { ...clip?.visual, ...value } });
 
   return <aside className="inspector">
     <h2 className="font-semibold">{s.inspector}</h2>
@@ -56,6 +57,29 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
         change={(fadeIn) => updateClip({ fadeIn })} />
       <NumberControl label={s.fadeOut} value={clip.fadeOut ?? 0} min={0} max={clip.duration} step={0.05}
         change={(fadeOut) => updateClip({ fadeOut })} />
+      {(['flipX', 'flipY'] as const).map((key) => <label key={key} className="toggle-field"><input type="checkbox"
+        checked={!!clip.visual?.[key]} onChange={(event) => updateVisual({ [key]: event.target.checked })} />
+        {key === 'flipX' ? s.flipHorizontal : s.flipVertical}</label>)}
+      <details><summary>{s.crop}</summary>
+        {([['x', s.positionX], ['y', s.positionY], ['width', s.width], ['height', s.height]] as const)
+          .map(([key, label]) => <NumberControl key={key} label={label} step={0.01}
+            min={key === 'x' || key === 'y' ? 0 : 0.05} max={key === 'x' || key === 'y' ? 0.95 : 1}
+            value={clip.visual?.crop?.[key] ?? (key === 'x' || key === 'y' ? 0 : 1)}
+            change={(value) => updateVisual({ crop: { ...clip.visual?.crop, [key]: value } })} />)}
+      </details>
+      <label>{s.visualMotion}<select value={clip.visual?.motion ?? 'none'} onChange={(event) =>
+        updateVisual({ motion: event.target.value as NonNullable<Clip['visual']>['motion'] })}>
+        {(['none', 'slide', 'zoom', 'spin', 'wipe'] as const).map((name) => <option key={name} value={name}>{s[name]}</option>)}
+      </select></label>
+      <details><summary>{s.adjust}</summary>
+        {([
+          ['brightness', 0, -1, 1], ['contrast', 1, 0, 2], ['saturation', 1, 0, 3],
+          ['temperature', 0, -1, 1], ['vignette', 0, 0, 1], ['blur', 0, 0, 40],
+        ] as const).map(([key, fallback, min, max]) => <NumberControl key={key} label={s.effectNames[key]}
+          value={clip.visual?.[key] ?? fallback} min={min} max={max} step={0.05}
+          change={(value) => updateVisual({ [key]: value })} />)}
+      </details>
+      <button onClick={() => updateClip({ visual: undefined })}>{s.resetSection}</button>
     </fieldset>}
     {clip && (hasAudio || showSpeed) && <fieldset disabled={track?.locked}>
       <legend>{s.audio}</legend>
@@ -64,6 +88,10 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
           onChange={(event) => updateClip({ muted: event.target.checked })} />{s.muteClip}</label>
         <NumberControl label={s.clipVolume} value={clip.volume ?? 1} min={0} max={2} step={0.05}
           change={(volume) => updateClip({ volume })} />
+        <label className="toggle-field"><input type="checkbox" checked={clip.preservePitch !== false}
+          onChange={(event) => updateClip({ preservePitch: event.target.checked })} />{s.preservePitch}</label>
+        <NumberControl label={s.waveformZoom} value={clip.waveformZoom ?? 1} min={0.5} max={4} step={0.1}
+          change={(waveformZoom) => updateClip({ waveformZoom })} />
         {!visual && <>
           <NumberControl label={s.fadeIn} value={clip.fadeIn ?? 0} min={0} max={clip.duration} step={0.05}
             change={(fadeIn) => updateClip({ fadeIn })} />

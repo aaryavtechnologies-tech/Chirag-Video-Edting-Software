@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["version", "id", "name", "settings", "assets", "tracks"],
   "properties": {
-    "version": { "type": "integer", "const": 1 },
+    "version": { "type": "integer", "const": 2 },
     "id": { "type": "string" },
     "name": { "type": "string" },
     "createdAt": { "type": "string" },
@@ -67,7 +67,10 @@
         "properties": { "time": { "type": "number" }, "label": { "type": "string" } }
       }
     },
-    "textPresets": { "type": "array", "items": { "$ref": "#/definitions/textStyle" } }
+    "textPresets": { "type": "array", "items": { "$ref": "#/definitions/textStyle" } },
+    "captionTracks": { "$ref": "07_captions_animations.schema.json#/properties/captionTracks" },
+    "captionTemplates": { "type": "array", "items": { "$ref": "07_captions_animations.schema.json#/definitions/captionTemplate" } },
+    "layout": { "$ref": "07_captions_animations.schema.json#/definitions/layoutSettings" }
   },
   "definitions": {
     "transform": {
@@ -92,22 +95,67 @@
         "align": { "enum": ["left", "center", "right"], "default": "center" },
         "lineHeight": { "type": "number", "default": 1.2 },
         "letterSpacing": { "type": "number", "default": 0 },
+        "wordSpacing": { "type": "number" },
+        "boxWidth": { "type": "number" },
+        "boxHeight": { "type": "number" },
+        "verticalAlign": { "enum": ["top", "middle", "bottom"] },
+        "direction": { "enum": ["auto", "ltr", "rtl"] },
+        "curve": { "type": "number" },
+        "outlineOffset": { "type": "number" },
+        "presetName": { "type": "string" },
+        "fills": { "type": "array", "maxItems": 3, "items": { "$ref": "#/definitions/textStyle/properties/fill" } },
+        "strokes": { "type": "array", "maxItems": 3, "items": { "$ref": "#/definitions/textStyle/properties/stroke" } },
+        "shadows": { "type": "array", "maxItems": 4, "items": { "$ref": "#/definitions/textStyle/properties/shadow" } },
+        "extrude": {
+          "type": "object",
+          "properties": { "color": { "type": "string" }, "depth": { "type": "number" }, "angle": { "type": "number" } }
+        },
+        "wordStyles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["index", "color"],
+            "properties": { "index": { "type": "integer", "minimum": 0 }, "color": { "type": "string" } }
+          }
+        },
         "fill": {
           "type": "object",
           "properties": {
             "type": { "enum": ["solid", "gradient"] },
             "color": { "type": "string" },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
             "gradient": {
               "type": "object",
               "properties": {
                 "from": { "type": "string" },
                 "to": { "type": "string" },
-                "angle": { "type": "number" }
+                "angle": { "type": "number" },
+                "kind": { "enum": ["linear", "radial"] },
+                "stops": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "required": ["color", "offset"],
+                    "properties": {
+                      "color": { "type": "string" },
+                      "offset": { "type": "number", "minimum": 0, "maximum": 1 }
+                    }
+                  }
+                }
               }
             }
           }
         },
-        "stroke": { "type": "object", "properties": { "color": { "type": "string" }, "width": { "type": "number" } } },
+        "stroke": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string" },
+            "width": { "type": "number" },
+            "alignment": { "enum": ["outside", "center", "inside"] }
+          }
+        },
         "shadow": {
           "type": "object",
           "properties": {
@@ -148,7 +196,10 @@
         "fit": { "enum": ["contain", "cover"], "default": "contain" },
         "text": { "type": "string" },
         "style": { "$ref": "#/definitions/textStyle" },
-        "linkedClipId": { "type": ["string", "null"] }
+        "linkedClipId": { "type": ["string", "null"] },
+        "animation": { "$ref": "07_captions_animations.schema.json#/definitions/animationSet" },
+        "preservePitch": { "type": "boolean" },
+        "waveformZoom": { "type": "number", "minimum": 0.5, "maximum": 4 }
       }
     }
   }

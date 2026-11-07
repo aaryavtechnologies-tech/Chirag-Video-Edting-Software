@@ -5,7 +5,7 @@ import type { ExportSettings } from '../../src/types/export';
 
 const settings: ExportSettings = { mode: 'both', videoFormat: 'h264', audioFormat: 'mp3',
   width: 1920, height: 1080, fps: 30, bitrate: 10, audioBitrate: 320, volume: 1, hardware: false, openFolder: false };
-const project: Project = { id: 'test', version: 1, name: 'Test', settings: { width: 1920, height: 1080, fps: 30 },
+const project: Project = { id: 'test', version: 2, name: 'Test', settings: { width: 1920, height: 1080, fps: 30 },
   assets: [{ id: 'vid', type: 'video', path: '/original.mp4', proxyPath: '/proxy.mp4', hasAudio: true }],
   tracks: [{ id: 'v1', kind: 'video', name: 'V1', order: 0, clips: [
     { id: 'c', type: 'video', assetId: 'vid', start: 1, duration: 3, speed: 0.25, fadeIn: 1 },

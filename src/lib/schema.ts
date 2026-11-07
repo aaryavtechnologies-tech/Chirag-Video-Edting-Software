@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { entrances, exits } from './textMotion';
 import { animationSetSchema } from '../animation/schema';
 import { captionSchemas, captionWordSchema, wordEffectSchema } from '../captions/schema';
+import { layoutModeSchema } from '../layouts/settings';
+import { shapeSchema, visualSchema } from './visual';
 
 // Draft-07 permits additional properties wherever the schema does not forbid them.
 const object = <T extends z.ZodRawShape>(shape: T) => z.object(shape).passthrough();
@@ -66,6 +68,8 @@ export const clipSchema = object({
   transform: transformSchema.optional(), fit: z.enum(['contain', 'cover']).optional(),
   text: str, style: textStyleSchema.optional(), animation: animationSetSchema.optional(), linkedClipId: path,
   caption: object({ words: z.array(captionWordSchema), wordEffect: wordEffectSchema.optional() }).optional(),
+  shape: shapeSchema.optional(), visual: visualSchema.optional(), preservePitch: bool,
+  waveformZoom: z.number().min(0.5).max(4).optional(),
 });
 
 export const trackSchema = object({
@@ -75,10 +79,16 @@ export const trackSchema = object({
 });
 
 export const projectSchema = object({
-  version: z.literal(1), id: z.string(), name: z.string(), createdAt: str, updatedAt: str,
+  version: z.literal(2), id: z.string(), name: z.string(), createdAt: str, updatedAt: str,
   settings: projectSettingsSchema, assets: z.array(assetSchema), tracks: z.array(trackSchema),
   markers: z.array(object({ time: z.number().finite(), label: str })).optional(),
   textPresets: z.array(textStyleSchema).optional(),
   captionTracks: z.array(captionTrackSchema).optional(),
   captionTemplates: z.array(captionTemplateSchema).optional(),
+  layout: object({ mode: layoutModeSchema.optional() }).optional(),
 });
+
+export function migrateProject(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || !('version' in value) || value.version !== 1) return value;
+  return { captionTracks: [], layout: { mode: 'auto' }, ...value, version: 2 };
+}

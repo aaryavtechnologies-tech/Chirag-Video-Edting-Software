@@ -6,7 +6,7 @@ import type { Clip, Project } from '../../src/types/project';
 
 function project(): Project {
   return {
-    version: 1, id: 'project', name: 'Timeline', settings: { width: 1920, height: 1080, fps: 30 },
+    version: 2, id: 'project', name: 'Timeline', settings: { width: 1920, height: 1080, fps: 30 },
     markers: [{ time: 6 }], assets: [{ id: 'source', type: 'video', path: 'source.mp4', duration: 10 }],
     tracks: [
       { id: 'v1', kind: 'video', name: 'V1', clips: [

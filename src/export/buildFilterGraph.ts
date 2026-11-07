@@ -4,6 +4,7 @@ import { audioGain, audioLayers } from '../lib/audioMix';
 import { textMotion } from '../lib/textMotion';
 import { clipTransform, fittedSize, radians } from '../preview/compositor';
 import { projectDuration } from '../timeline/operations';
+import { cropRect } from '../lib/visual';
 
 export type RasterInput = { path: string; width: number; height: number;
   sequence?: { fps: number; startFrame: number; x: number; y: number; firstFile: string } };
@@ -80,12 +81,17 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
           continue;
         }
         const still = clip.type !== 'video';
+        const crop = cropRect(clip);
         const size = text && raster ? raster : fittedSize(stage.width, stage.height,
-          asset?.width || stage.width, asset?.height || stage.height, clip.fit === 'cover');
+          (asset?.width || stage.width) * crop.width, (asset?.height || stage.height) * crop.height, clip.fit === 'cover');
         const transform = clipTransform(clip);
         const w = even(size.width * Math.max(0.01, transform.scale));
         const h = even(size.height * Math.max(0.01, transform.scale));
-        const motion = text && !clip.animation ? textMotion(clip) : undefined;
+        const visual = text ? undefined : clip.visual;
+        const visualDuration = Math.min(0.5, clip.duration);
+        const motion: ReturnType<typeof textMotion> | undefined = text && !clip.animation ? textMotion(clip) :
+          visual?.motion === 'slide' || visual?.motion === 'zoom'
+            ? { duration: visualDuration, enter: visual.motion === 'slide' ? { x: 0.18 } : { scale: -0.4 }, exit: {} } : undefined;
         const fade = clipFades(clip, false);
         if (motion?.enter.fade) fade.push(`fade=t=in:st=0:d=${fixed(motion.duration)}:alpha=1`);
         if (motion?.exit.fade) fade.push(
@@ -98,7 +104,15 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
           `setpts=(PTS-STARTPTS)/${fixed(timing.speed)}`, `fps=${fps}`,
           `tpad=stop_mode=clone:stop_duration=${fixed(1 / fps)}`,
         ];
-        filters.push(`trim=duration=${fixed(clip.duration)}`, 'format=rgba');
+        filters.push(`trim=duration=${fixed(clip.duration)}`);
+        if (visual?.crop) filters.push(`crop=w=iw*${fixed(crop.width)}:h=ih*${fixed(crop.height)}:x=iw*${fixed(crop.x)}:y=ih*${fixed(crop.y)}`);
+        if (visual?.flipX) filters.push('hflip');
+        if (visual?.flipY) filters.push('vflip');
+        if (visual && (visual.brightness !== undefined || visual.contrast !== undefined || visual.saturation !== undefined)) {
+          filters.push(`eq=brightness=${fixed(visual.brightness ?? 0)}:contrast=${fixed(visual.contrast ?? 1)}:saturation=${fixed(visual.saturation ?? 1)}`);
+        }
+        if (visual?.temperature) filters.push(`colorbalance=rs=${fixed(visual.temperature * 0.2)}:bs=${fixed(visual.temperature * -0.2)}`);
+        filters.push('format=rgba');
         if (motion && (motion.enter.scale || motion.exit.scale)) {
           const phase = (time: string) => `(1-clip((${time})/${fixed(motion.duration)},0,1))`;
           const scale = `(1+${fixed(motion.enter.scale ?? 0)}*${phase('t')})*(1+${fixed(motion.exit.scale ?? 0)}*${phase(fixed(clip.duration) + '-t')})`;
@@ -106,10 +120,16 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
           filters.push(`pad=${w}:${h}:x=(ow-iw)/2:y=(oh-ih)/2:color=black@0:eval=frame`);
         } else filters.push(`scale=${w}:${h}:flags=bicubic`);
         filters.push('setsar=1');
-        if (transform.rotation) {
+        if (visual?.blur) filters.push(`gblur=sigma=${fixed(visual.blur * height / 1080)}`);
+        if (visual?.vignette) filters.push(`vignette=angle=${fixed(visual.vignette * Math.PI / 4)}`);
+        if (visual?.motion === 'spin') {
+          const angle = `${fixed(radians(transform.rotation))}-PI*(1-min(1,t/${fixed(visualDuration)}))`;
+          filters.push(`rotate=a='${angle}':ow=ceil(hypot(iw,ih)/2)*2:oh=ceil(hypot(iw,ih)/2)*2:c=none`);
+        } else if (transform.rotation) {
           const angle = fixed(radians(transform.rotation));
           filters.push(`rotate=${angle}:ow=ceil(rotw(${angle})/2)*2:oh=ceil(roth(${angle})/2)*2:c=none`);
         }
+        if (visual?.motion === 'wipe') filters.push(`geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,W*min(1,T/${fixed(visualDuration)})),alpha(X,Y),0)'`);
         if (transform.opacity !== 1) filters.push(`colorchannelmixer=aa=${fixed(transform.opacity)}`);
         filters.push('format=yuva420p', ...fade, `setpts=PTS+${fixed(clip.start)}/TB`);
         graph.push(`[${index}:V:0]${filters.join(',')}[layer${layers}]`);
@@ -142,7 +162,8 @@ export function buildFilterGraph(project: Project, settings: ExportSettings, ras
     const label = 'audio' + audioInputs.length;
     const filters = [
       `atrim=start=${fixed(start)}:end=${fixed(end)}`, 'asetpts=PTS-STARTPTS',
-      'aformat=sample_rates=48000:channel_layouts=stereo', ...audioTempo(speed),
+      'aformat=sample_rates=48000:channel_layouts=stereo',
+      ...(clip.preservePitch === false && speed !== 1 ? [`asetrate=${Math.round(48000 * speed)}`, 'aresample=48000'] : audioTempo(speed)),
       `atrim=duration=${fixed(clip.duration)}`, `volume=${fixed(audioGain(track, clip))}`,
       ...clipFades(clip, true), `adelay=${Math.round(clip.start * 48000)}S:all=1`,
     ];

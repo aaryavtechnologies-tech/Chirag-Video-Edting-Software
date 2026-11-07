@@ -94,6 +94,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
         (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
       if (event.ctrlKey || event.metaKey) {
         const key = event.key.toLowerCase();
+        if (event.shiftKey && (key === 'c' || key === 'v')) return;
         if (key === 'c') clipboard.current = copyClips(project, selected);
         else if (key === 'v' && clipboard.current.length) paste(clipboard.current, playhead);
         else if (key === 'd') {

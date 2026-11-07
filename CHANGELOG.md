@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Added the editor shell and portrait and landscape layouts, 40 bundled fonts, and JSON text and caption libraries.
+- Added the animation engine, caption tracks and file workflows, and shared PNG-sequence export.
+- Added version 2 project migration, Layers, keyboard shortcuts, and clip tools.
+
 ## 0.2.0
 
 - Added 12 text style presets with swatches and expanded entrance and exit animations.

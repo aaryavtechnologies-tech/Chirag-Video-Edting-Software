@@ -16,7 +16,7 @@ import { TextInspector } from '../panels/Inspector/TextInspector';
 import { TextPanel } from '../panels/TextPanel';
 import { textKinds } from '../lib/textPresets';
 import { alignFrame, timecode, timeToFrame } from '../lib/time';
-import type { Asset, Clip, Project, ProjectSettings } from '../types/project';
+import type { Asset, Clip, Project, ProjectSettings, TextStyle } from '../types/project';
 import type { OpenProject } from '../types/desktop';
 import { ExportDialog } from '../export/ExportDialog';
 import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, LayoutMenu, type Dock } from './EditorChrome';
@@ -28,6 +28,11 @@ import { reframeProject } from '../layouts/reframe';
 import { CaptionsPanel } from '../captions/CaptionsPanel';
 import { CaptionInspector } from '../captions/CaptionInspector';
 import { captionTrack, findCaption } from '../captions/model';
+import { getTemplate } from '../captions/templates';
+import { LayersPanel } from '../panels/Inspector/LayersPanel';
+import { Shortcuts } from './Shortcuts';
+import { ShapeInspector, VisualTools } from '../panels/VisualTools';
+import type { shapeKinds } from '../lib/visual';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } |
@@ -51,6 +56,9 @@ export function App() {
   const [selectedCaptions, setSelectedCaptions] = useState<ReadonlySet<string>>(new Set());
   const [tab, setTab] = useState<Dock>('media');
   const [palette, setPalette] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'inspector' | 'layers'>('inspector');
+  const styleClipboard = useRef<{ style?: TextStyle; animation?: Clip['animation'] }>();
   const [timelineZoom, setTimelineZoom] = useState(100);
   const [previewQuality, setPreviewQuality] = useState<'full' | 'half' | 'quarter'>('half');
   const [exportOpen, setExportOpen] = useState(false);
@@ -58,7 +66,7 @@ export function App() {
   const [dockOpen, setDockOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [safeGuides, setSafeGuides] = useState<boolean>();
-  const layout = home?.preferences.layout;
+  const layout = home?.preferences.layout ?? (project?.layout?.mode ? { mode: project.layout.mode } : undefined);
   const resolvedLayout = resolveLayout(layout?.mode ?? 'auto', project?.settings.width ?? 16, project?.settings.height ?? 9);
   const Layout = resolvedLayout === 'portrait' ? PortraitLayout : LandscapeLayout;
   const showGuides = safeGuides ?? resolvedLayout === 'portrait';
@@ -89,6 +97,27 @@ export function App() {
   const inspected = project && selection.clipId ? findClip(project, selection.clipId)?.clip : undefined;
   const inspectedCaption = project && selection.clipId ? findCaption(project, selection.clipId) : undefined;
   const inspectedCaptionTrack = inspectedCaption?.track ?? (project && captionTrack(project, selection.trackId));
+
+  function copyStyle() {
+    if (inspected?.type === 'text') styleClipboard.current = { style: inspected.style, animation: inspected.animation };
+    else if (project && inspectedCaption) {
+      const template = getTemplate(project, inspectedCaption.track);
+      styleClipboard.current = { style: { ...template.style, ...inspectedCaption.segment.overrides?.style },
+        animation: inspectedCaption.segment.overrides?.animation ?? template.animation };
+    }
+  }
+
+  function pasteStyle() {
+    const style = styleClipboard.current;
+    if (!style || !selection.clipId) return;
+    const id = selection.clipId;
+    edit((draft) => {
+      const clip = findClip(draft, id);
+      if (clip && !clip.track.locked && clip.clip.type === 'text') Object.assign(clip.clip, style);
+      const caption = findCaption(draft, id);
+      if (caption && !caption.track.locked) caption.segment.overrides = { ...caption.segment.overrides, ...style };
+    });
+  }
 
   function edit(recipe: (draft: Project) => void) {
     const before = useProject.getState().current;
@@ -122,6 +151,22 @@ export function App() {
       trackId = track.id;
     });
     select(clip.id, trackId);
+  }
+
+  function addShape(kind: typeof shapeKinds[number]) {
+    if (!project || busy) return;
+    const id = crypto.randomUUID();
+    const clip: Clip = { id, type: 'text', text: s[kind], start: alignFrame(playhead, project.settings.fps), duration: 3,
+      shape: { kind, width: project.settings.width * 0.25, height: project.settings.height * 0.2,
+        fill: '#8872f5', stroke: '#ffffff', strokeWidth: 4 } };
+    let trackId: string | undefined;
+    edit((draft) => {
+      const track = [...draft.tracks].reverse().find((item) => item.kind === 'video' && !item.locked &&
+        !item.hidden && item.clips.every((other) => !overlaps(clip, other))) ?? addTrack(draft, 'video', crypto.randomUUID());
+      track.clips.push(clip);
+      trackId = track.id;
+    });
+    select(id, trackId);
   }
 
   useEffect(() => {
@@ -220,8 +265,13 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if (!current || exportOpen || modal || palette || event.defaultPrevented) return;
+      if (!current || exportOpen || modal || palette || showShortcuts || event.defaultPrevented) return;
       const target = event.target;
+      if (event.key === '?' && !(target instanceof HTMLElement &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable))) {
+        event.preventDefault();
+        setShowShortcuts(true);
+      }
       if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey &&
         (!(target instanceof HTMLElement) ||
           (!['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName) && !target.isContentEditable))) {
@@ -237,6 +287,12 @@ export function App() {
       }
       if (!(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
+      if (event.shiftKey && (key === 'c' || key === 'v')) {
+        if (target instanceof HTMLElement && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)) return;
+        event.preventDefault();
+        if (key === 'c') copyStyle();
+        else pasteStyle();
+      }
       if (key === 'k') { event.preventDefault(); setPalette(true); }
       if (key === 's') {
         event.preventDefault();
@@ -292,7 +348,7 @@ export function App() {
             tab === 'text' || tab === 'templates' ? <TextPanel add={addText} busy={busy} /> :
             tab === 'captions' ? <CaptionsPanel project={current.project} edit={edit} trackId={selection.trackId}
               selected={selectedCaptions} playhead={playhead} select={selectCaption} seek={playback.seek} /> :
-            <section className="dock-empty"><h2>{s[tab]}</h2><p className="muted">{s.dockPending}</p></section>}
+            <VisualTools tab={tab} clip={inspected} addShape={addShape} edit={edit} />}
         </EditorDock>}
         preview={<PreviewCanvas project={current.project} playback={{ ...playback, toggle: togglePlayback }} edit={edit}
           volume={volume} setVolume={setVolume} peak={peak} selected={selection.clipId} onSelect={(clipId, trackId) => {
@@ -301,20 +357,29 @@ export function App() {
             else select(clipId, trackId);
           }}
           snapshot={snapshot} onQuality={setPreviewQuality} safeGuides={showGuides} />}
-        inspector={inspectedCaptionTrack ? <CaptionInspector key={inspectedCaption?.segment.id ?? inspectedCaptionTrack.id}
+        inspector={<>
+        <div className="inspector-switch">
+          <button aria-pressed={inspectorTab === 'inspector'} onClick={() => setInspectorTab('inspector')}>{s.inspector}</button>
+          <button aria-pressed={inspectorTab === 'layers'} onClick={() => setInspectorTab('layers')}>{s.layers}</button>
+        </div>
+        {inspectorTab === 'layers' ? <LayersPanel project={current.project} edit={edit} active={selection.clipId}
+          onSelect={select} onCaptionSelect={selectCaption} /> :
+          inspectedCaptionTrack ? <CaptionInspector key={inspectedCaption?.segment.id ?? inspectedCaptionTrack.id}
           project={current.project} edit={edit} track={inspectedCaptionTrack} segment={inspectedCaption?.segment} /> :
           !selection.clipId && !selection.trackId ? <aside className="inspector">
           <h2 className="font-semibold">{s.projectSettings}</h2>
           <p className="muted my-3">{current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}</p>
           <p className="muted">{s.tracks} {current.project.tracks.length} · {s.media} {current.project.assets.length}</p>
           <button className="mt-3" onClick={() => setModal({ kind: 'projectSettings' })}>{s.editSettings}</button>
-        </aside> : inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
+        </aside> : inspected?.shape ? <ShapeInspector project={current.project} clip={inspected} edit={edit} /> :
+          inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
           previewAnimation={() => playback.previewRange(inspected.start, inspected.start + inspected.duration)} /> :
           <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
+        </>}
       />
       </LayoutProvider>
       <Timeline key={current.project.id} project={current.project} edit={edit}
-        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal || palette}
+        playhead={playback.playhead} seek={playback.seek} busy={busy || exportOpen || !!modal || palette || showShortcuts}
         onSelect={select} focusedClip={inspectedCaption ? undefined : selection.clipId} onZoom={setTimelineZoom}
         selectedCaptions={selectedCaptions} onCaptionSelect={selectCaption} />
       <footer className="editor-status" aria-label={s.editorStatus}>
@@ -338,6 +403,7 @@ export function App() {
       }} />}
     {!modal && message}
     {notice && <p className="status" role="status">{notice}</p>}
+    {showShortcuts && <Shortcuts close={() => setShowShortcuts(false)} />}
     {current && palette && <CommandPalette close={() => setPalette(false)} actions={[
       { label: s.save, shortcut: 'Ctrl+S', disabled: busy, run: save },
       { label: s.saveAs, shortcut: 'Ctrl+Shift+S', run: () => setModal({ kind: 'saveAs' }) },
@@ -348,6 +414,9 @@ export function App() {
       { label: s.title, shortcut: 'T', run: () => { setTab('text'); addText('title'); } },
       { label: s.projectSettings, run: () => setModal({ kind: 'projectSettings' }) },
       { label: s.toggleTheme, run: toggleTheme },
+      { label: s.shortcuts, shortcut: '?', run: () => setShowShortcuts(true) },
+      { label: s.copyStyle, shortcut: 'Ctrl+Shift+C', disabled: inspected?.type !== 'text' && !inspectedCaption, run: copyStyle },
+      { label: s.pasteStyle, shortcut: 'Ctrl+Shift+V', disabled: !styleClipboard.current, run: pasteStyle },
     ]} />}
     {current && exportOpen && <ExportDialog project={current.project} volume={volume}
       save={async () => { acceptSaved(await window.desktop.save(current.project, snapshot.current?.())); }}

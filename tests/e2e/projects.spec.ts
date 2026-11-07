@@ -164,6 +164,31 @@ test('creates a caption track and edits a segment override', async ({}, testInfo
   }
 });
 
+test('adds a shape and exposes it in the searchable Layers panel', async ({}, testInfo) => {
+  const { app, projects } = await launch(testInfo.outputPath('workspace'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.shapes, exact: true }).click();
+    await page.getByRole('button', { name: s.rectangle, exact: true }).click();
+    await page.getByRole('button', { name: s.layers, exact: true }).click();
+    await page.getByLabel(s.searchLayers).fill(s.rectangle);
+    await expect(page.locator('.layers-panel .layer-clip')).toHaveText(s.rectangle);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: s.save, exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText(s.saved);
+    const file = join(projects, s.defaultName, s.defaultName + '.vedit');
+    const saved = JSON.parse(await readFile(file, 'utf8'));
+    expect(saved.version).toBe(2);
+    expect(saved.tracks.flatMap((track: { clips: unknown[] }) => track.clips)).toEqual([
+      expect.objectContaining({ shape: expect.objectContaining({ kind: 'rectangle' }) }),
+    ]);
+  } finally {
+    await app.close();
+  }
+});
+
 test('recovers an autosaved edit after an interrupted session', async ({}, testInfo) => {
   const root = testInfo.outputPath('workspace');
   const { app, projects } = await launch(root);

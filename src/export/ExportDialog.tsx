@@ -5,7 +5,7 @@ import { frameRates } from '../lib/schema';
 import { projectDuration } from '../timeline/operations';
 import type { Project } from '../types/project';
 import type { ExportProgress, ExportResult, ExportSettings, TextPng } from '../types/export';
-import { loadTextFont, rasterizeText } from '../text/rasteriser';
+import { loadClipFont, rasterClip } from '../text/rasterClip';
 import { estimateExportBytes, exportPresets, exportSizes, qualityFactors, suggestedBitrate } from './exportPresets';
 import { captionExportProject } from '../captions/model';
 import { encodePng, needsTextFrames, stageTextFrames } from './textFrames';
@@ -24,9 +24,8 @@ async function prepareRasters(project: Project, settings: ExportSettings, cancel
     for (const clip of track.clips) {
       if (cancelled()) return rasters;
       if (clip.type !== 'text') continue;
-      const text = clip.text ?? '';
-      await loadTextFont(text, clip.style);
-      const raster = rasterizeText(text, clip.style, scale);
+      await loadClipFont(clip);
+      const raster = rasterClip(clip, scale);
       if (needsTextFrames(clip)) {
         let count = 0;
         await stageTextFrames(project, clip, raster, settings, cancelled, (value) => { count = value; report(frames + value); });

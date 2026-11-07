@@ -8,6 +8,14 @@
 .editor-body > .editor-stage + .panel-resizer { left:auto; right:calc(var(--inspector-size) - 3px); }
 .layout-inspector { grid-column:3; min-width:0; }
 .preview-surface { width:min(100%, calc(var(--preview-height) * var(--preview-ratio))); }
+.preview-viewport { display:grid; justify-items:safe center; align-items:start; max-height:var(--preview-height);
+  width:100%; overflow:auto; }
+.preview-grid { position:absolute; inset:0; pointer-events:none; background-image:
+  linear-gradient(to right, #ffffff58 1px, transparent 1px), linear-gradient(to bottom, #ffffff58 1px, transparent 1px);
+  background-size:calc(100% / 3) calc(100% / 3); }
+.preview-rulers { position:absolute; inset:0; pointer-events:none; background:
+  repeating-linear-gradient(to right, #fafafa 0 1px, transparent 1px 12px) top / 100% 6px no-repeat,
+  repeating-linear-gradient(to bottom, #fafafa 0 1px, transparent 1px 12px) left / 6px 100% no-repeat; }
 .editor-portrait .timeline-row { min-height:34px; }
 .editor-portrait .timeline-row.ruler { min-height:26px; }
 .editor-portrait .timeline-scroll { max-height:24vh; }
