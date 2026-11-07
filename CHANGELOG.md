@@ -1,5 +1,9 @@
 # Changelog
 
+## M2
+
+- Added a filterable media bin, ffprobe import, thumbnails, background preview proxies, and undo/redo.
+
 ## 0.1.0 · M1
 
 - Added the desktop shell, searchable recent projects, project setup, and app preferences.

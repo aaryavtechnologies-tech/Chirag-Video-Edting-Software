@@ -1,4 +1,4 @@
-import type { Project, ProjectSettings } from './project';
+import type { Asset, Project, ProjectSettings } from './project';
 
 export type OpenProject = { file: string; project: Project };
 export type RecentProject = {
@@ -8,13 +8,19 @@ export type RecentProject = {
 export type Preferences = { folder: string; theme: 'dark' | 'light'; autosave: number };
 export type HomeState = { recent: RecentProject[]; preferences: Preferences };
 export type NewProject = { name: string; folder: string; settings: ProjectSettings };
+export type MediaProgress = {
+  projectId: string; assetId: string; percent: number; proxyPath?: string; failed?: boolean;
+};
+export type ImportResult = { assets: Asset[]; failures: string[]; proxies: string[] };
 
 export const channels = {
   home: 'settings:read', preferences: 'settings:save', folder: 'dialog:folder',
   create: 'projects:create', open: 'projects:open', save: 'projects:save',
   rename: 'projects:rename', duplicate: 'projects:duplicate', remove: 'projects:remove',
   reveal: 'projects:reveal',
+  importMedia: 'media:import',
 } as const;
+export const mediaProgressChannel = 'media:progress';
 
 export interface DesktopApi {
   home(): Promise<HomeState>;
@@ -27,6 +33,9 @@ export interface DesktopApi {
   duplicate(file: string, name: string): Promise<HomeState>;
   remove(file: string): Promise<HomeState>;
   reveal(file: string): Promise<void>;
+  importMedia(projectId: string, files?: string[]): Promise<ImportResult>;
+  filePath(file: File): string;
+  onMediaProgress(listener: (progress: MediaProgress) => void): () => void;
 }
 
 declare global {

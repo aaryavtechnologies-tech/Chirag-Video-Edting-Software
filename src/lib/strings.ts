@@ -18,5 +18,10 @@ export const strings = {
   operationFailed: 'The operation could not be completed. Check the file and try again.',
   unsupportedVersion: 'This project was saved in an unsupported format version.',
   trackVideo: 'V', trackAudio: 'A', recentUnavailable: 'This project is no longer in the recent list.',
+  media: 'Media', mediaFiles: 'Video, image, and audio files', importMedia: 'Import media',
+  filterMedia: 'Filter media', all: 'All', video: 'Video', image: 'Image', audio: 'Audio',
+  mediaEmpty: 'Drop files here or use Import media.', noMediaMatches: 'No media matches this filter.',
+  proxyReady: 'Proxy ready', proxyFailed: 'Proxy unavailable', proxyProgress: 'Building proxy',
+  importFailed: 'Could not import these files', seconds: 's', undo: 'Undo', redo: 'Redo',
 };
 

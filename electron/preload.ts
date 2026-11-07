@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import { channels, type DesktopApi } from '../src/types/desktop';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
+import { channels, mediaProgressChannel, type DesktopApi, type MediaProgress } from '../src/types/desktop';
 
 const api: DesktopApi = {
   home: () => ipcRenderer.invoke(channels.home),
@@ -12,6 +12,13 @@ const api: DesktopApi = {
   duplicate: (file, name) => ipcRenderer.invoke(channels.duplicate, file, name),
   remove: (file) => ipcRenderer.invoke(channels.remove, file),
   reveal: (file) => ipcRenderer.invoke(channels.reveal, file),
+  importMedia: (projectId, files) => ipcRenderer.invoke(channels.importMedia, projectId, files),
+  filePath: (file) => webUtils.getPathForFile(file),
+  onMediaProgress: (listener) => {
+    const forward = (_event: IpcRendererEvent, progress: MediaProgress) => listener(progress);
+    ipcRenderer.on(mediaProgressChannel, forward);
+    return () => ipcRenderer.removeListener(mediaProgressChannel, forward);
+  },
 };
 
 contextBridge.exposeInMainWorld('desktop', api);

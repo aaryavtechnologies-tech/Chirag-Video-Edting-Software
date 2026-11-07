@@ -5,12 +5,13 @@ import type { HomeState, RecentProject } from '../types/desktop';
 import { Home } from './Home';
 import { Modal } from './Modal';
 import { NewProjectForm, PreferencesForm } from './ProjectForms';
+import { MediaBin } from '../panels/MediaBin';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
 type AppDialog = { kind: 'new' | 'settings' } | ProjectDialog;
 
 export function App() {
-  const { current, setCurrent } = useProject();
+  const { current, setCurrent, acceptSaved, edit, past, future, undo, redo, proxies, mediaProgress } = useProject();
   const [home, setHome] = useState<HomeState>();
   const [modal, setModal] = useState<AppDialog>();
   const [busy, setBusy] = useState(false);
@@ -31,6 +32,7 @@ export function App() {
   }
 
   useEffect(() => { void run(async () => setHome(await window.desktop.home())); }, []);
+  useEffect(() => window.desktop.onMediaProgress(mediaProgress), [mediaProgress]);
   useEffect(() => {
     document.documentElement.dataset.theme = home?.preferences.theme ?? 'dark';
   }, [home]);
@@ -44,16 +46,54 @@ export function App() {
 
   function save() {
     if (current && !busy) void run(async () => {
-      setCurrent(await window.desktop.save(current.project));
+      acceptSaved(await window.desktop.save(current.project));
       setNotice(s.saved);
+    });
+  }
+
+  function stepHistory(action: 'undo' | 'redo') {
+    if (!current || busy || (action === 'undo' ? !past.length : !future.length)) return;
+    void run(async () => {
+      const change = action === 'undo' ? undo : redo;
+      change();
+      try {
+        const next = useProject.getState().current;
+        if (next) acceptSaved(await window.desktop.save(next.project));
+      } catch (failure) {
+        if (action === 'undo') redo();
+        else undo();
+        throw failure;
+      }
+    });
+  }
+
+  function importFiles(files?: string[]) {
+    if (!current || busy) return;
+    void run(async () => {
+      const { assets, failures } = await window.desktop.importMedia(current.project.id, files);
+      if (assets.length) edit((project) => {
+        const state = useProject.getState();
+        project.assets.push(...assets.map((asset) => {
+          const proxyPath = state.proxies[asset.id]?.proxyPath;
+          return proxyPath ? { ...asset, proxyPath } : asset;
+        }));
+      });
+      if (failures.length) setError(`${s.importFailed}\n${failures.join('\n')}`);
     });
   }
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && current) {
+      if (!(event.ctrlKey || event.metaKey) || !current) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') {
         event.preventDefault();
         save();
+      }
+      if (key === 'z' && !(event.target instanceof HTMLInputElement) &&
+        !(event.target instanceof HTMLTextAreaElement)) {
+        event.preventDefault();
+        stepHistory(event.shiftKey ? 'redo' : 'undo');
       }
     };
     window.addEventListener('keydown', listener);
@@ -70,14 +110,19 @@ export function App() {
           setCurrent();
         })}>{s.home}</button>
         <h1 className="text-xl font-semibold">{current.project.name}</h1>
+        <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
+        <button disabled={busy || !future.length} onClick={() => stepHistory('redo')}>{s.redo}</button>
         <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
       </header>
-      <div className="editor-stage">
+      <div className="editor-body">
+        <MediaBin assets={current.project.assets} proxies={proxies} busy={busy} importFiles={importFiles} />
+        <div className="editor-stage">
         <div className="canvas" role="img" aria-label={s.preview} style={{
           aspectRatio: current.project.settings.width / current.project.settings.height,
           backgroundColor: current.project.settings.background ?? '#000000',
         }} />
         <p className="muted">{current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}</p>
+        </div>
       </div>
       <section className="editor-tracks">
         <h2>{s.tracks}</h2>

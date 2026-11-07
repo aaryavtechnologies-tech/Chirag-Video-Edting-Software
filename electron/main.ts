@@ -1,24 +1,28 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 'electron';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { channels, type DesktopApi, type OpenProject } from '../src/types/desktop';
+import { channels, mediaProgressChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
 import { strings } from '../src/lib/strings';
 import { createProject, loadProject, nameSchema, ownedFolderMarker, parseProject, saveProject } from './services/projects';
 import { Settings } from './services/settings';
+import { importMedia, queueProxy } from './services/media';
+import { mediaExtensions } from './services/probe';
+import { z } from 'zod';
 
 let window: BrowserWindow | undefined;
 let active: OpenProject | undefined;
 let pending: Promise<unknown> = Promise.resolve();
 const html = join(__dirname, '../renderer/index.html');
-const url = process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(html).href;
+const url = new URL(process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(html).href).href;
+protocol.registerSchemesAsPrivileged([{ scheme: 'editor-media', privileges: { standard: true, secure: true, stream: true } }]);
 
 async function logError(error: unknown) {
   const line = error instanceof Error ? error.stack ?? error.message : String(error);
   await appendFile(join(app.getPath('userData'), 'editor.log'), `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
 }
 
-function register<K extends keyof DesktopApi>(key: K, handler: (...args: Parameters<DesktopApi[K]>) => ReturnType<DesktopApi[K]>) {
+function register<K extends keyof typeof channels>(key: K, handler: (...args: Parameters<DesktopApi[K]>) => ReturnType<DesktopApi[K]>) {
   ipcMain.handle(channels[key], (event, ...args: Parameters<DesktopApi[K]>) => {
     if (event.sender !== window?.webContents || event.senderFrame?.url !== url) {
       throw new Error(strings.operationFailed);
@@ -54,6 +58,28 @@ function registerHandlers(settings: Settings) {
     return project;
   }
 
+  function reportProxy(project: OpenProject, update: MediaProgress) {
+    const send = () => {
+      if (active?.project.id === update.projectId) window?.webContents.send(mediaProgressChannel, update);
+    };
+    if (!update.proxyPath) { send(); return; }
+    const proxyPath = update.proxyPath;
+    const task = pending.then(async () => {
+      const latest = await loadProject(project.file);
+      if (latest.project.id !== update.projectId ||
+        !latest.project.assets.some((asset) => asset.id === update.assetId)) return;
+      const assets = latest.project.assets.map((asset) =>
+        asset.id === update.assetId ? { ...asset, proxyPath } : asset);
+      const saved = await saveProject(project.file, { ...latest.project, assets });
+      if (active?.file === saved.file && active.project.id === saved.project.id) active = saved;
+      send();
+    });
+    pending = task.catch(async (error) => {
+      await logError(error);
+      reportProxy(project, { ...update, percent: 0, proxyPath: undefined, failed: true });
+    });
+  }
+
   register('home', async () => settings.read());
   register('preferences', async (value) => settings.update(value));
   register('folder', async (current) => {
@@ -73,7 +99,31 @@ function registerHandlers(settings: Settings) {
   register('save', async (value) => {
     const project = parseProject(value);
     if (!active || active.project.id !== project.id) throw new Error(strings.operationFailed);
-    return activate(await saveProject(active.file, project));
+    const latest = new Map(active.project.assets.map((asset) => [asset.id, asset]));
+    const assets = project.assets.map((asset) => {
+      const stored = latest.get(asset.id);
+      return stored?.path === asset.path && stored.proxyPath && !asset.proxyPath
+        ? { ...asset, proxyPath: stored.proxyPath } : asset;
+    });
+    return activate(await saveProject(active.file, { ...project, assets }));
+  });
+  register('importMedia', async (projectId, dropped) => {
+    if (!active || active.project.id !== projectId) throw new Error(strings.operationFailed);
+    const project = active;
+    const files = dropped === undefined ? (await dialog.showOpenDialog(window!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: strings.mediaFiles, extensions: mediaExtensions }],
+    })).filePaths : z.array(z.string()).max(500).parse(dropped);
+    if (!files.length) return { assets: [], failures: [], proxies: [] };
+    const result = await importMedia(project, files, logError);
+    if (!result.assets.length) return result;
+    const saved = await activate(await saveProject(project.file, {
+      ...project.project, assets: [...project.project.assets, ...result.assets],
+    }));
+    for (const asset of result.assets) {
+      if (result.proxies.includes(asset.id)) queueProxy(saved, asset, (update) => reportProxy(saved, update), logError);
+    }
+    return result;
   });
   register('rename', async (file, name) => {
     const validated = nameSchema.safeParse(name);
@@ -117,6 +167,18 @@ void app.whenReady().then(async () => {
   await mkdir(data, { recursive: true });
   const defaultFolder = join(app.getPath('documents'), 'VideoEditorProjects');
   registerHandlers(await Settings.load(join(data, 'settings.json'), defaultFolder));
+  protocol.handle('editor-media', async (request) => {
+    const { pathname, hostname } = new URL(request.url);
+    const current = active;
+    const asset = current?.project.assets.find((item) => encodeURIComponent(item.id) === pathname.slice(1));
+    if (!current || hostname !== 'thumbnail' || !asset?.thumbPath) return new Response(null, { status: 404 });
+    const folder = dirname(current.file);
+    const expected = join(folder, 'cache', asset.id + '.jpg');
+    if (!/^[\w-]+$/.test(asset.id) || resolve(folder, asset.thumbPath) !== expected) {
+      return new Response(null, { status: 404 });
+    }
+    return net.fetch(pathToFileURL(expected).href).catch(() => new Response(null, { status: 404 }));
+  });
   Menu.setApplicationMenu(null);
   createWindow();
   app.on('activate', () => { if (!window) createWindow(); });
