@@ -42,7 +42,7 @@ function register<K extends keyof typeof channels>(
         await logError(error);
         const messages: string[] = [strings.invalidProject, strings.unsupportedVersion, strings.invalidName,
           strings.alreadyExists, strings.invalidSize, strings.recentUnavailable, strings.exportExists,
-          strings.exportMissing, strings.exportFailed];
+          strings.exportMissing, strings.exportFailed, strings.exportSpace];
         const message = error instanceof Error && messages.includes(error.message) ? error.message :
           error instanceof Error && error.name === 'ZodError' ? strings.invalidName : strings.operationFailed;
         throw new Error(message);
@@ -179,7 +179,8 @@ function registerHandlers(settings: Settings) {
       if (settings.openFolder && result.files[0]) shell.showItemInFolder(result.files[0]);
       return result;
     } catch (error) {
-      if (error instanceof Error && [strings.exportExists, strings.exportMissing].some((message) => message === error.message)) throw error;
+      if (error instanceof Error && [strings.exportExists, strings.exportMissing, strings.exportSpace]
+        .some((message) => message === error.message)) throw error;
       await logError(error);
       throw new Error(strings.exportFailed);
     } finally {

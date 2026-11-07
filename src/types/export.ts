@@ -17,7 +17,9 @@ export const exportSettingsSchema = z.object({
 
 export type ExportSettings = z.infer<typeof exportSettingsSchema>;
 export type TextPng = { id: string; png: string };
-export type ExportProgress = { percent: number; elapsed: number; eta?: number; verifying?: boolean };
+export type ExportProgress = {
+  percent: number; elapsed: number; eta?: number; verifying?: boolean; encoder?: string; fallback?: boolean;
+};
 export type ExportResult = { files: string[]; encoder?: string; cancelled?: boolean };
 
 export function videoExtension(format: ExportSettings['videoFormat']) {

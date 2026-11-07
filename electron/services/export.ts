@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { access, link, mkdir, mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, copyFile, link, mkdir, mkdtemp, rm, statfs, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, extname, isAbsolute, join, parse } from 'node:path';
 import { z } from 'zod';
 import { buildFilterGraph, type RasterInput } from '../../src/export/buildFilterGraph';
+import { estimateExportBytes } from '../../src/export/exportPresets';
 import { strings } from '../../src/lib/strings';
 import { exportSettingsSchema, videoExtension, type ExportProgress, type ExportResult, type ExportSettings, type TextPng } from '../../src/types/export';
 import type { Project } from '../../src/types/project';
 import { runMediaTool } from './ffmpeg';
+import { selectEncoder, softwareEncoder } from './encoders';
 
 const rasterSchema = z.array(z.object({ id: z.string(), png: z.string().max(80_000_000) })).max(500);
 const reportSchema = z.object({
@@ -70,13 +73,16 @@ function partialFile(file: string) {
   return join(dir, `.${name}.${randomUUID()}.partial${ext}`);
 }
 
-function videoArgs(settings: ExportSettings, file: string) {
-  const codec = settings.videoFormat === 'vp9' ? 'libvpx-vp9' :
-    settings.videoFormat === 'hevc' ? 'libx265' : 'libx264';
+function videoArgs(settings: ExportSettings, file: string, codec: string) {
   const webm = settings.videoFormat === 'vp9';
+  const software = codec === softwareEncoder(settings.videoFormat);
+  const highLevel = settings.videoFormat === 'h264' && settings.width * settings.height >= 8_000_000 && settings.fps >= 50;
+  const profile = highLevel && (codec === 'libx264' || codec === 'h264_nvenc' || codec === 'h264_qsv')
+    ? ['-profile:v', 'high', '-level:v', '5.2'] : [];
   return ['-map', '[vout]', '-map', '[aout]', '-c:v', codec, '-pix_fmt', 'yuv420p', '-r', String(settings.fps),
     '-b:v', settings.bitrate + 'M', ...(webm ? ['-deadline', 'good', '-cpu-used', '4'] :
-      ['-preset', 'veryfast', '-movflags', '+faststart']),
+      [...(software ? ['-preset', 'veryfast'] : []), '-movflags', '+faststart']),
+    ...profile, '-threads', '0',
     '-c:a', webm ? 'libopus' : 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2', file];
 }
 
@@ -111,6 +117,8 @@ export async function exportProject(
     const rasterPaths = settings.mode === 'audio' ? new Map<string, RasterInput>() :
       await saveRasters(directory, project, rasters);
     const { inputs, script, duration } = buildFilterGraph(project, settings, rasterPaths);
+    const { bsize, bavail } = await statfs(dirname(selected), { bigint: true });
+    if (bsize * bavail < BigInt(estimateExportBytes(settings, duration))) throw new Error(strings.exportSpace);
     for (let index = 1; index < inputs.length; index += 2) {
       const source = inputs[index];
       if (!isAbsolute(source)) throw new Error(strings.exportMissing);
@@ -121,15 +129,26 @@ export async function exportProject(
     const start = Date.now();
     const elapsed = () => (Date.now() - start) / 1000;
     report({ percent: 0, elapsed: 0 });
-    await runMediaTool('ffmpeg', [
+    const fallback = softwareEncoder(settings.videoFormat);
+    let encoder = tempVideo ? await selectEncoder(settings, signal) : undefined;
+    const render = (codec: string | undefined) => runMediaTool('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-nostdin', '-n', '-filter_complex_threads', '2',
       ...inputs, '-filter_complex_script', scriptPath, '-progress', 'pipe:1',
-      ...(tempVideo ? videoArgs(settings, tempVideo) : []), ...(tempAudio ? audioArgs(settings, tempAudio) : []),
+      ...(tempVideo && codec ? videoArgs(settings, tempVideo, codec) : []), ...(tempAudio ? audioArgs(settings, tempAudio) : []),
     ], (time) => {
       const fraction = Math.max(0, Math.min(0.99, time / duration));
       report({ percent: Math.floor(fraction * 100), elapsed: elapsed(),
-        eta: fraction > 0 ? elapsed() * (1 / fraction - 1) : undefined });
+        eta: fraction > 0 ? elapsed() * (1 / fraction - 1) : undefined, encoder: codec });
     }, signal);
+    try { await render(encoder); }
+    catch (error) {
+      if (signal.aborted || !encoder || encoder === fallback) throw error;
+      if (tempVideo) await rm(tempVideo, { force: true });
+      if (tempAudio) await rm(tempAudio, { force: true });
+      encoder = fallback;
+      report({ percent: 0, elapsed: elapsed(), encoder, fallback: true });
+      await render(encoder);
+    }
     signal.throwIfAborted();
     report({ percent: 99, elapsed: elapsed(), verifying: true });
     if (tempVideo) await verifyExport(tempVideo, duration, settings);
@@ -138,11 +157,16 @@ export async function exportProject(
     for (const [temp, destination] of [[tempVideo, outputs.video], [tempAudio, outputs.audio]]) {
       if (!temp || !destination) continue;
       // Link in the same folder atomically and refuse to overwrite an existing destination.
-      await link(temp, destination);
+      try { await link(temp, destination); }
+      catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || !['EPERM', 'ENOTSUP', 'EOPNOTSUPP'].includes(String(error.code))) throw error;
+        await copyFile(temp, destination, constants.COPYFILE_EXCL);
+      }
       finalized.push(destination);
+      signal.throwIfAborted();
     }
     report({ percent: 100, elapsed: elapsed() });
-    return { files: outputs.all };
+    return { files: outputs.all, encoder };
   } catch (error) {
     await Promise.allSettled(finalized.map((file) => unlink(file)));
     if (signal.aborted) return { files: [], cancelled: true };

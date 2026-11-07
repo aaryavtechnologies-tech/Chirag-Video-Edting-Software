@@ -10,4 +10,5 @@
 - M5 uses browser pitch-preserving playback for speed changes. Soloing an audio track suppresses other audio tracks and embedded video audio. A detached clip gets an independent timeline placement.
 - M6 saves text presets in the project file and represents fill opacity with alpha-channel colors so it fits the supplied file format.
 - M7 fits the project stage into the export frame when their aspect ratios differ. MP4 uses AAC and WebM uses Opus. Outputs are published only after verification, and existing files are protected.
+- M8 tests available hardware encoders at the requested output dimensions and fps before using them. A driver failure during rendering triggers a fresh software encode.
 

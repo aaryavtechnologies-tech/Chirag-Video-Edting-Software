@@ -1,5 +1,9 @@
 # Changelog
 
+## M8
+
+- Added verified 4K60 export, encoding presets, hardware encoder probing, software fallback, and output size and free-space checks.
+
 ## M7
 
 - Added FFmpeg video and audio export with shared Canvas text, progress, cancellation, range selection, and ffprobe verification.
