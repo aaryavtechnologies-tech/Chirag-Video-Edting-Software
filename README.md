@@ -49,6 +49,10 @@ The renderer rasterizes styled text to transparent PNGs with the Canvas code use
 
 H.264 and HEVC exports probe NVENC, QSV, AMF, or VideoToolbox as appropriate for the host and retry in software if the hardware encode fails. Use **YouTube 4K60** for 3840×2160 at 60 fps. The bundled FFmpeg binary's license and build notices are in the `ffmpeg-static` package.
 
+## Downloader development
+
+Run `npm run downloader:prepare` to stage the pinned yt-dlp and Deno executables for your platform. The command uses curl and either tar on Windows or unzip on macOS and Linux. It verifies SHA-256 digests from the official release sources before staging files. The Windows build stages and bundles those tools automatically. D1 provides the metadata service and quality selection used by later downloader phases.
+
 ## Demo project
 
 Run `npm run sample` and open `samples/Demo/Demo.vedit`. The generator writes local media and a three-second project with two videos, two images, three styled titles, and two audio tracks. Select **Export**, apply **YouTube 4K60**, then select **Both files** to produce an MP4 and MP3. The golden and Electron tests exercise these export paths and verify their output with ffprobe.

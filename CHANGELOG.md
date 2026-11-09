@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added YouTube metadata lookup, verified downloader tool preparation, and container-aware format selection for D1.
+
 ## 0.4.0
 
 - Rebuilt Home, the frameless editor, preview controls, and timeline around a shared dark and light theme.

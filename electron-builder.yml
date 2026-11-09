@@ -4,6 +4,10 @@ directories:
   output: release
 files:
   - out/**/*
+extraResources:
+  - from: vendor/downloader
+    to: downloader
+    filter: [yt-dlp, yt-dlp.exe, deno, deno.exe]
 asarUnpack:
   - node_modules/ffmpeg-static/ffmpeg*
   - node_modules/ffprobe-static/bin/**/*

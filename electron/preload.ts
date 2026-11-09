@@ -3,6 +3,7 @@ import { channels, exportProgressChannel, mediaProgressChannel, windowMaximizedC
 import type { ExportProgress } from '../src/types/export';
 
 const api: DesktopApi = {
+  downloaderInfo: (url) => ipcRenderer.invoke(channels.downloaderInfo, url),
   home: () => ipcRenderer.invoke(channels.home),
   preferences: (value) => ipcRenderer.invoke(channels.preferences, value),
   folder: (current) => ipcRenderer.invoke(channels.folder, current),

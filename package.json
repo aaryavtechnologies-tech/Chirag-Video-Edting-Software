@@ -7,7 +7,8 @@
   "main": "out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build && electron-builder",
+    "build": "npm run downloader:prepare && electron-vite build && electron-builder",
+    "downloader:prepare": "node scripts/prepare-downloader.mjs",
     "compile": "electron-vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

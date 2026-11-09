@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { channels, exportProgressChannel, mediaProgressChannel, windowMaximizedChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
 import { strings } from '../src/lib/strings';
 import { createProject, loadProject, nameSchema, ownedFolderMarker, parseProject, saveProject, thumbnailKey } from './services/projects';
+import { Downloader } from './services/downloader';
 import { Settings } from './services/settings';
 import { importMedia, needsProxy, populateAssetCache, queueProxy } from './services/media';
 import { mediaExtensions, probeAsset } from './services/probe';
@@ -51,7 +52,10 @@ function register<K extends keyof typeof channels>(
         await logError(error);
         const messages: string[] = [strings.invalidProject, strings.unsupportedVersion, strings.invalidName,
           strings.alreadyExists, strings.invalidSize, strings.recentUnavailable, strings.exportExists,
-          strings.exportMissing, strings.exportFailed, strings.exportSpace, strings.relinkInvalid];
+          strings.exportMissing, strings.exportFailed, strings.exportSpace, strings.relinkInvalid,
+          strings.downloaderInvalidUrl, strings.downloaderMissing, strings.downloaderRuntimeMissing, strings.downloaderExtraction,
+          strings.downloaderRegion, strings.downloaderRestricted, strings.downloaderLive, strings.downloaderUnavailable,
+          strings.downloaderNetwork];
         const message = error instanceof Error && messages.includes(error.message) ? error.message :
           error instanceof Error && error.name === 'ZodError' ? strings.invalidName : strings.operationFailed;
         throw new Error(message);
@@ -64,6 +68,9 @@ function register<K extends keyof typeof channels>(
 }
 
 function registerHandlers(settings: Settings) {
+  const downloader = new Downloader(app.isPackaged ? join(process.resourcesPath, 'downloader') :
+    join(app.getAppPath(), 'vendor', 'downloader'));
+  register('downloaderInfo', (url) => downloader.getInfo(url, logError), false);
   let checkpoint = Date.now();
   function known(file: string) {
     if (!settings.read().recent.some((entry) => entry.file === file)) {

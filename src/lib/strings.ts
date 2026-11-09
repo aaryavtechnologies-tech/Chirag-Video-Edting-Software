@@ -1,4 +1,13 @@
 export const strings = {
+  downloaderInvalidUrl: 'Enter a valid HTTPS YouTube video link.',
+  downloaderMissing: 'The YouTube downloader is missing. Reinstall the editor or prepare its downloader tools.',
+  downloaderRuntimeMissing: 'The bundled Deno runtime is missing. Reinstall the editor or prepare its downloader tools.',
+  downloaderExtraction: 'YouTube could not provide playable formats. Update the downloader and try again.',
+  downloaderRegion: 'This video is unavailable in your region.',
+  downloaderRestricted: 'This video is private, members-only, or age-restricted.',
+  downloaderLive: 'Wait for the stream or premiere to finish and for its recording to become available.',
+  downloaderUnavailable: 'This video has been removed or is unavailable.',
+  downloaderNetwork: 'Could not connect to YouTube. Check your connection and try again.',
   applicationMenu: 'Application menu', fileMenu: 'File', editMenu: 'Edit', helpMenu: 'Help',
   openRecent: 'Open recent', exitApp: 'Exit', cut: 'Cut', selectAll: 'Select all', zoomOut: 'Zoom out',
   timelineEmpty: 'Drag media here to start editing',

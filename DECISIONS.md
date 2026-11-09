@@ -34,3 +34,7 @@
 - M9 also builds preview proxies for MOV, MKV, and AVI sources to cover browser decoder differences. Exports still read the originals.
 - A basic cross-fade uses overlapping clips on separate video tracks with a fade on the upper clip.
 
+
+- D1 canonicalizes supported HTTPS video links to a watch URL and strips the remaining query. Playlist-only links are deferred to D5.
+- D1 filters DRM and restricted metadata and ranks the short edge for portrait quality labels. MP4 selection uses MP4 video and AAC audio streams so the merge can preserve the selected streams.
+- The build stages official yt-dlp and Deno binaries outside the source tree using release SHA-256 digests. The runtime disables external yt-dlp configurations, plugins, cookies, and remote solver components.

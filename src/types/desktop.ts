@@ -1,3 +1,4 @@
+import type { VideoInfo } from './downloader';
 import type { Asset, Project, ProjectSettings } from './project';
 import type { ExportProgress, ExportResult, ExportSettings, TextFrameBatch, TextPng } from './export';
 
@@ -18,6 +19,7 @@ export type ImportResult = { assets: Asset[]; failures: string[]; proxies: strin
 export type WindowAction = 'minimize' | 'maximize' | 'fullscreen' | 'close';
 
 export const channels = {
+  downloaderInfo: 'downloader:getInfo',
   home: 'settings:read', preferences: 'settings:save', folder: 'dialog:folder',
   create: 'projects:create', open: 'projects:open', save: 'projects:save',
   rename: 'projects:rename', duplicate: 'projects:duplicate', remove: 'projects:remove',
@@ -35,6 +37,7 @@ export const exportProgressChannel = 'export:progress';
 export const windowMaximizedChannel = 'window:maximized';
 
 export interface DesktopApi {
+  downloaderInfo(url: string): Promise<VideoInfo>;
   home(): Promise<HomeState>;
   preferences(value: Preferences): Promise<HomeState>;
   folder(current: string): Promise<string | undefined>;
