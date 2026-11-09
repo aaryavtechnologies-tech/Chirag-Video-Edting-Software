@@ -1,3 +1,4 @@
+import { Segmented, Slider } from '../design-system/Controls';
 import { Select } from '../design-system/Select';
 import { useMemo, useState } from 'react';
 import type { AnimationPhase, AnimationSet, AnimationSlot, Easing } from './schema';
@@ -35,16 +36,18 @@ export function AnimationInspector({ value, change }: { value?: AnimationSet; ch
   const curve = Array.isArray(slot?.easing) ? slot.easing : undefined;
   const set = (patch: Partial<AnimationSlot>) => change({ ...value, [phase]: { preset: 'none', ...slot, ...patch } });
   return <>
-    <div className="inspector-tabs">
+    <Segmented label={s.animation}>
       {(['in', 'out', 'loop'] as const).map((item) => <button key={item} aria-pressed={phase === item}
         onClick={() => setPhase(item)}>{s.animationPhases[item]}</button>)}
-    </div>
+    </Segmented>
     <div className="style-presets animation-grid">
       {['none', ...presets[phase]].map((id) => <AnimationCard key={id} phase={phase} id={id}
         pressed={(slot?.preset ?? 'none') === id} select={() => set({ preset: id, granularity: defaultGranularity(id) })} />)}
     </div>
     {slot && slot.preset !== 'none' && <>
-      <Numeric label={s.animationDuration} value={slot.duration ?? 0.5} min={0.1} max={3} step={0.05} change={(duration) => set({ duration })} />
+      <div className="inspector-slider-row"><span>{s.animationDuration}</span>
+        <Slider label={s.animationDuration} value={slot.duration ?? 0.5} min={0.1} max={3} step={0.05}
+          reset={0.5} change={(duration) => set({ duration })} /></div>
       <Numeric label={s.animationDelay} value={slot.delay ?? 0} min={0} max={30} step={0.05} change={(delay) => set({ delay })} />
       <Numeric label={s.intensity} value={slot.intensity ?? 1} min={0} max={2} step={0.05} change={(intensity) => set({ intensity })} />
       <label>{s.direction}<Select label={s.direction} value={slot.direction ?? 'right'} onChange={(event) => set({ direction: directions[event.target.selectedIndex] })}>
@@ -67,10 +70,11 @@ export function AnimationInspector({ value, change }: { value?: AnimationSet; ch
           }} />)}
       </div>}
       {phase !== 'loop' && <>
-        <label>{s.granularity}<Select label={s.granularity} value={slot.granularity ?? defaultGranularity(slot.preset)}
-          onChange={(event) => set({ granularity: granularityValues[event.target.selectedIndex] })}>
-          {granularityValues.map((unit) => <option key={unit} value={unit}>{s.granularityNames[unit]}</option>)}
-        </Select></label>
+        <Segmented label={s.granularity}>
+          {granularityValues.map((unit) => <button key={unit} title={s.granularityNames[unit]}
+            aria-pressed={(slot.granularity ?? defaultGranularity(slot.preset)) === unit}
+            onClick={() => set({ granularity: unit })}>{s.shortGranularity[unit]}</button>)}
+        </Segmented>
         <Numeric label={s.stagger} value={slot.stagger ?? 0.04} min={0} max={0.3} step={0.01} change={(stagger) => set({ stagger })} />
         <label>{s.staggerOrder}<Select label={s.staggerOrder} value={slot.staggerOrder ?? 'forward'} onChange={(event) => set({ staggerOrder: staggerOrders[event.target.selectedIndex] })}>
           {staggerOrders.map((order) => <option key={order} value={order}>{s.staggerNames[order]}</option>)}

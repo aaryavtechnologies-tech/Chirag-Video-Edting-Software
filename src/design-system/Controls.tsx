@@ -11,7 +11,7 @@ export function Segmented({ label, children }: { label: string; children: ReactN
 }
 
 export function Switch({ label, checked, change }: { label: string; checked: boolean; change(value: boolean): void }) {
-  return <label className="toggle-field"><input role="switch" type="checkbox" checked={checked}
+  return <label className="toggle-field ui-switch"><input role="switch" type="checkbox" checked={checked}
     onChange={(event) => change(event.target.checked)} />{label}</label>;
 }
 
@@ -20,8 +20,8 @@ export function NumberInput({ label, value, min, max, step, change }: Range) {
   return <input className="ui-number" aria-label={label} type="number" min={min} max={max} step={step}
     key={value} defaultValue={Number(value.toFixed(3))} onBlur={(event) => {
       const next = event.target.valueAsNumber;
-      if (Number.isFinite(next)) change(Math.max(min, Math.min(max, next)));
-      event.target.value = String(Number((Number.isFinite(next) ? Math.max(min, Math.min(max, next)) : value).toFixed(3)));
+      if (Number.isFinite(next) && next >= min && next <= max && next !== value) change(next);
+      else event.target.value = String(Number(value.toFixed(3)));
     }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />;
 }
 

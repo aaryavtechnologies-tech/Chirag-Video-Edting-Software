@@ -1,0 +1,32 @@
+.layout-inspector .inspector { border:0; padding:0 8px 8px; }
+.layout-inspector .inspector > h2 { padding-top:8px; }
+.inspector-switch { border-bottom:1px solid var(--border); }
+.inspector-switch [aria-pressed="true"] { background:var(--accent-soft); color:var(--text); }
+.inspector > .inspector-tabs { position:sticky; z-index:2; top:0; margin:0 -8px; padding:5px 8px; gap:3px;
+  flex-wrap:nowrap; overflow:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); }
+.inspector-tabs button { display:flex; align-items:center; flex:none; gap:4px; white-space:nowrap; }
+.inspector-tabs button[aria-pressed="true"],.inspector .ui-segmented .tool-icon[aria-pressed="true"] { background:var(--accent-soft); color:var(--text); }
+.inspector fieldset { margin:8px 0 0; padding:4px 0 8px; gap:5px; min-width:0; }
+.inspector legend { font-size:11px; color:var(--text); font-weight:650; }
+.inspector fieldset[hidden],.inspector div[hidden] { display:none; }
+.inspector fieldset label:not(.toggle-field):not(:has(textarea)),.inspector-slider-row {
+  display:grid; align-items:center; grid-template-columns:minmax(0,1fr) minmax(0,55%); gap:5px; min-height:27px;
+  color:var(--text-dim); font-size:11px;
+}
+.inspector label > :is(input,.ui-select,textarea) { color:var(--text); min-width:0; }
+.inspector label .ui-number { justify-self:end; }
+.inspector .style-layers > summary,.inspector fieldset > details > summary {
+  padding:5px 7px; min-height:27px; font-size:11px; font-weight:650; }
+.inspector .style-layers > summary { margin-bottom:4px; }
+.inspector .animation-grid { grid-template-columns:repeat(3,minmax(0,1fr)); max-height:216px; margin:4px 0; }
+.inspector .animation-grid button { min-height:64px; min-width:0; font-size:10px; line-height:1.1; overflow-wrap:anywhere; }
+.inspector .animation-grid canvas { max-height:36px; object-fit:contain; margin-bottom:4px; }
+.inspector .animation-grid button[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); }
+.inspector .ui-segmented button { min-width:0; font-size:10px; padding:3px; }
+.inspector .ui-segmented .tool-icon { height:26px; }
+.inspector .inspector-action { display:flex; align-items:center; gap:6px; justify-content:center; }
+.ui-switch { justify-content:space-between; flex-direction:row-reverse; min-height:27px; }
+.ui-switch input { appearance:none; width:28px; height:16px; flex:none; padding:0; border:0; border-radius:10px; background:var(--bg-active); }
+.ui-switch input::before { content:""; display:block; width:12px; height:12px; margin:2px; border-radius:50%; background:var(--text-dim); transition:transform var(--ease); }
+.ui-switch input:checked { background:var(--accent); }
+.ui-switch input:checked::before { transform:translateX(12px); background:white; }

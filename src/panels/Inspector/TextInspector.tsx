@@ -1,5 +1,8 @@
+import { AlignCenter, AlignLeft, AlignRight, Bold, CaseUpper, Move, Palette, Play, Sparkles, Type, Italic, Underline } from 'lucide-react';
+import { NumberInput, Segmented, Switch } from '../../design-system/Controls';
+import { IconButton } from '../../design-system/IconButton';
 import { Select } from '../../design-system/Select';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { strings as s } from '../../lib/strings';
 import { builtInStyles } from '../../lib/textPresets';
 import { bundledFonts } from '../../text/fontCatalog';
@@ -61,14 +64,13 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
   };
 
   return <aside className="inspector">
-    <h2 className="font-semibold">{s.styles}</h2>
-    <div className="inspector-tabs">
-      {(['basic', 'styles', 'position', 'animation'] as const).map((item) =>
-        <button key={item} aria-pressed={tab === item} onClick={() => setTab(item)}>{s[item]}</button>)}
+    <div className="inspector-tabs" role="group" aria-label={s.inspector}>
+      {([['basic', Type], ['styles', Palette], ['animation', Sparkles], ['position', Move]] as const).map(([item, Icon]) =>
+        <button key={item} aria-pressed={tab === item} onClick={() => setTab(item)}><Icon size={13} aria-hidden="true" />{s[item]}</button>)}
     </div>
     <fieldset disabled={locked} hidden={tab !== 'animation'}>
       <legend>{s.animation}</legend>
-      <details open={!!clip.animation} className="style-layers">
+      <details open className="style-layers">
         <summary>{s.advancedAnimation}</summary>
         {tab === 'animation' && <AnimationInspector value={clip.animation} change={(animation) => change((item) => {
           const duration = Math.max(0.1, Math.min(3, item.style?.animationDuration ?? 0.4));
@@ -91,7 +93,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       </>}
       <button onClick={previewAnimation} disabled={clip.animation ?
         ![clip.animation.in, clip.animation.out, clip.animation.loop].some((slot) => slot && slot.preset !== 'none') :
-        (!style.animationIn || style.animationIn === 'none') && (!style.animationOut || style.animationOut === 'none')}>{s.previewAnimation}</button>
+        (!style.animationIn || style.animationIn === 'none') && (!style.animationOut || style.animationOut === 'none')} className="inspector-action"><Play size={14} />{s.previewAnimation}</button>
     </fieldset>
     <fieldset disabled={locked} hidden={tab !== 'styles'}>
       <legend>{s.presets}</legend>
@@ -154,8 +156,11 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       <legend>{s.content}</legend>
       <label>{s.text}<textarea key={clip.text} defaultValue={clip.text} rows={3} maxLength={5000}
         onBlur={(event) => change((item) => { item.text = event.target.value; })} /></label>
-      <Choice label={s.alignment} value={style.align ?? 'center'} values={['left', 'center', 'right']}
-        change={(align) => set({ align })} />
+      <Segmented label={s.alignment}>
+        {([['left', AlignLeft], ['center', AlignCenter], ['right', AlignRight]] as const).map(([align, Icon]) =>
+          <IconButton key={align} label={s[align]} aria-pressed={(style.align ?? 'center') === align}
+            onClick={() => set({ align })}><Icon size={15} /></IconButton>)}
+      </Segmented>
       <NumberField label={s.lineHeight} value={style.lineHeight ?? 1.2} min={0.5} max={4} step={0.05}
         change={(lineHeight) => set({ lineHeight })} />
       <NumberField label={s.letterSpacing} value={style.letterSpacing ?? 0} min={-100} max={100}
@@ -169,7 +174,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       <Choice label={s.verticalAlign} value={style.verticalAlign ?? 'top'} values={['top', 'middle', 'bottom']}
         change={(verticalAlign) => set({ verticalAlign })} />
     </fieldset>
-    <fieldset disabled={locked} hidden={tab !== 'basic'}>
+    <fieldset disabled={locked} hidden={tab !== 'styles'}>
       <legend>{s.font}</legend>
       <label>{s.fontFamily}<input key={style.fontFamily} defaultValue={style.fontFamily ?? 'Inter'}
         list="editor-fonts" onBlur={(event) => set({ fontFamily: event.target.value.trim() || 'Inter' })}
@@ -182,8 +187,11 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       {fontError && <p className="muted">{s.fontUnavailable}</p>}
       <NumberField label={s.fontSize} value={style.fontSize ?? 64} min={1} max={1024}
         change={(fontSize) => set({ fontSize })} />
-      {(['bold', 'italic', 'underline', 'uppercase'] as const).map((key) =>
-        <Toggle key={key} label={s[key]} checked={!!style[key]} change={(value) => set({ [key]: value })} />)}
+      <Segmented label={s.font}>
+        {([['bold', Bold], ['italic', Italic], ['underline', Underline], ['uppercase', CaseUpper]] as const).map(([key, Icon]) =>
+          <IconButton key={key} label={s[key]} aria-pressed={!!style[key]}
+            onClick={() => set({ [key]: !style[key] })}><Icon size={15} /></IconButton>)}
+      </Segmented>
     </fieldset>
     <fieldset disabled={locked} hidden={tab !== 'styles'}>
       <legend>{s.fill}</legend>
@@ -239,20 +247,10 @@ function Choice<T extends keyof typeof s>({ label, value, values, change }: {
   </Select></label>;
 }
 
-function Toggle({ label, checked, change }: { label: ReactNode; checked: boolean; change(value: boolean): void }) {
-  return <label className="toggle-field"><input type="checkbox" checked={checked}
-    onChange={(event) => change(event.target.checked)} />{label}</label>;
-}
-
 function NumberField({ label, value, min, max, step = 1, change }: {
   label: string; value: number; min: number; max: number; step?: number; change(value: number): void;
 }) {
-  return <label>{label}<input key={value} type="number" defaultValue={Number(value.toFixed(3))} min={min} max={max}
-    step={step} onBlur={(event) => {
-      const next = event.target.valueAsNumber;
-      if (Number.isFinite(next) && next >= min && next <= max && next !== value) change(next);
-      else event.target.value = String(Number(value.toFixed(3)));
-    }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /></label>;
+  return <label>{label}<NumberInput label={label} value={value} min={min} max={max} step={step} change={change} /></label>;
 }
 
 function hex(value: string | undefined) { return value?.match(/^#[\da-f]{6}/i)?.[0] ?? '#000000'; }
@@ -274,8 +272,7 @@ function Effect({ label, value, defaults: initial, fields, disabled, change }: {
   disabled?: boolean; change(value: { color?: string; [key: string]: unknown } | undefined): void;
 }) {
   return <fieldset disabled={disabled}>
-    <legend>{label}</legend>
-    <Toggle label={s.enabled} checked={!!value} change={(enabled) => change(enabled ? initial : undefined)} />
+    <Switch label={label} checked={!!value} change={(enabled) => change(enabled ? initial : undefined)} />
     {value && <>
       <ColorField label={s.color} value={value.color ?? initial.color} change={(color) => change({ ...value, color })} />
       {Object.entries(fields).map(([key, [label, min, max, step]]) =>

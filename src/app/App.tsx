@@ -446,7 +446,7 @@ export function App() {
         </aside> : inspected?.shape ? <ShapeInspector project={current.project} clip={inspected} edit={edit} /> :
           inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
           previewAnimation={() => playback.previewRange(inspected.start, inspected.start + inspected.duration)} /> :
-          <AudioInspector project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
+          <AudioInspector key={selection.clipId ?? selection.trackId} project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
         </>}
       />
       </LayoutProvider>

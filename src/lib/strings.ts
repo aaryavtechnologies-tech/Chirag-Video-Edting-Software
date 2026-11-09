@@ -75,6 +75,7 @@ export const strings = {
   gallery: 'Template and Animation Gallery', gallerySample: 'Animate this',
   animationPhases: { in: 'In', out: 'Out', loop: 'Loop' },
   animationDirections: { up: 'Up', down: 'Down', left: 'Left', right: 'Right' },
+  shortGranularity: { whole: 'Whole', line: 'Line', word: 'Word', char: 'Char' },
   granularityNames: { whole: 'Whole text', line: 'Line', word: 'Word', char: 'Character' },
   staggerNames: { forward: 'Forward', backward: 'Backward', center: 'Centre out', random: 'Seeded random' },
   animationNames: {

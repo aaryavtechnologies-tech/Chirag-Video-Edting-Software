@@ -1,3 +1,5 @@
+import { AudioLines, Film, Gauge, SlidersHorizontal } from 'lucide-react';
+import { NumberInput } from '../../design-system/Controls';
 import { Select } from '../../design-system/Select';
 import { useState } from 'react';
 import type { Clip, Project, Track } from '../../types/project';
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export function AudioInspector({ project, clipId, trackId, edit }: Props) {
+  const [tab, setTab] = useState<'basic' | 'speed' | 'adjust' | 'audio'>('basic');
   const [error, setError] = useState('');
   const found = clipId ? findClip(project, clipId) : undefined;
   const track = found?.track ?? project.tracks.find((item) => item.id === trackId);
@@ -29,9 +32,13 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
   const updateVisual = (value: Partial<NonNullable<Clip['visual']>>) => updateClip({ visual: { ...clip?.visual, ...value } });
 
   return <aside className="inspector">
-    <h2 className="font-semibold">{s.inspector}</h2>
+    <div className="inspector-tabs" role="group" aria-label={s.inspector}>
+      {([['basic', Film, true], ['audio', AudioLines, !!track], ['speed', Gauge, showSpeed], ['adjust', SlidersHorizontal, visual]] as const)
+        .filter(([, , available]) => available).map(([key, Icon]) =>
+          <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}><Icon size={13} aria-hidden="true" />{s[key]}</button>)}
+    </div>
     {!track && <p className="muted mt-3">{s.selectClip}</p>}
-    {track && <fieldset>
+    {track && <fieldset hidden={tab !== 'basic' && tab !== 'audio'}>
       <legend>{track.name}</legend>
       <label className="toggle-field"><input type="checkbox" checked={!!track.muted}
         onChange={(event) => updateTrack({ muted: event.target.checked })} />{s.muteTrack}</label>
@@ -40,7 +47,7 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
       <NumberControl label={s.trackVolume} value={track.volume ?? 1} min={0} max={2} step={0.05}
         change={(volume) => updateTrack({ volume })} />
     </fieldset>}
-    {clip && visual && <fieldset disabled={track?.locked}>
+    {clip && visual && <fieldset disabled={track?.locked} hidden={tab !== 'basic' && tab !== 'adjust'}>
       <legend>{s.video}</legend>
       <label>{s.fit}<Select label={s.fit} value={clip.fit ?? 'contain'} onChange={(event) => {
         const fit = event.target.value === 'cover' ? 'cover' : 'contain';
@@ -72,7 +79,7 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
         updateVisual({ motion: event.target.value as NonNullable<Clip['visual']>['motion'] })}>
         {(['none', 'slide', 'zoom', 'spin', 'wipe'] as const).map((name) => <option key={name} value={name}>{s[name]}</option>)}
       </Select></label>
-      <details><summary>{s.adjust}</summary>
+      <details open={tab === 'adjust'}><summary>{s.adjust}</summary>
         {([
           ['brightness', 0, -1, 1], ['contrast', 1, 0, 2], ['saturation', 1, 0, 3],
           ['temperature', 0, -1, 1], ['vignette', 0, 0, 1], ['blur', 0, 0, 40],
@@ -82,7 +89,7 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
       </details>
       <button onClick={() => updateClip({ visual: undefined })}>{s.resetSection}</button>
     </fieldset>}
-    {clip && (hasAudio || showSpeed) && <fieldset disabled={track?.locked}>
+    {clip && (hasAudio || showSpeed) && <fieldset disabled={track?.locked} hidden={tab !== 'basic' && tab !== 'audio' && tab !== 'speed'}>
       <legend>{s.audio}</legend>
       {hasAudio && <>
         <label className="toggle-field"><input type="checkbox" checked={!!clip.muted}
@@ -119,10 +126,5 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
 function NumberControl({ label, value, min, max, step, change }: {
   label: string; value: number; min: number; max: number; step: number; change(value: number): void;
 }) {
-  return <label>{label}<input key={value} type="number" defaultValue={Number(value.toFixed(3))}
-    min={min} max={max} step={step} onBlur={(event) => {
-      const next = event.currentTarget.valueAsNumber;
-      if (Number.isFinite(next) && next >= min && next <= max && next !== value) change(next);
-      else event.currentTarget.value = String(Number(value.toFixed(3)));
-    }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /></label>;
+  return <label>{label}<NumberInput label={label} value={value} min={min} max={max} step={step} change={change} /></label>;
 }
