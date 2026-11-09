@@ -15,11 +15,12 @@ import { AudioInspector } from '../panels/Inspector/AudioInspector';
 import { TextInspector } from '../panels/Inspector/TextInspector';
 import { TextPanel } from '../panels/TextPanel';
 import { textKinds } from '../lib/textPresets';
+import { ratioLabel } from '../lib/geometry';
 import { alignFrame, timecode, timeToFrame } from '../lib/time';
 import type { Asset, Clip, Project, ProjectSettings, TextStyle } from '../types/project';
 import type { OpenProject } from '../types/desktop';
 import { ExportDialog } from '../export/ExportDialog';
-import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, type Dock } from './EditorChrome';
+import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, dockNames } from './EditorChrome';
 import { LayoutProvider } from '../layouts/LayoutProvider';
 import { LandscapeLayout } from '../layouts/LandscapeLayout';
 import { PortraitLayout } from '../layouts/PortraitLayout';
@@ -34,6 +35,7 @@ import { Shortcuts } from './Shortcuts';
 import { ShapeInspector, VisualTools } from '../panels/VisualTools';
 import { CheckCircle2, Download, Home as HomeIcon, Redo2, Save, SaveAll, Settings2, Undo2 } from 'lucide-react';
 import { ProjectColors } from '../design-system/ColorPicker';
+import { useStoredTab } from '../design-system/useStoredTab';
 import { IconButton } from '../design-system/IconButton';
 import { TitleBar, type TitleAction } from './TitleBar';
 import type { shapeKinds } from '../lib/visual';
@@ -66,10 +68,10 @@ export function App() {
   const [peak, setPeak] = useState(0);
   const [selection, setSelection] = useState<{ clipId?: string; trackId?: string }>({});
   const [selectedCaptions, setSelectedCaptions] = useState<ReadonlySet<string>>(new Set());
-  const [tab, setTab] = useState<Dock>('media');
+  const [tab, setTab] = useStoredTab('editor-dock-tab', dockNames, 'media');
   const [palette, setPalette] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<'inspector' | 'layers'>('inspector');
+  const [inspectorTab, setInspectorTab] = useStoredTab('editor-inspector-tab', ['inspector', 'layers'] as const, 'inspector');
   const styleClipboard = useRef<{ style?: TextStyle; animation?: Clip['animation'] }>();
   const [timelineZoom, setTimelineZoom] = useState(100);
   const [previewQuality, setPreviewQuality] = useState<'full' | 'half' | 'quarter'>('half');
@@ -79,6 +81,7 @@ export function App() {
   const [dockOpen, setDockOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [safeGuides, setSafeGuides] = useState<boolean>();
+  const canvasRatio = project && (ratioLabel(project.settings.width, project.settings.height) ?? s.custom);
   const layout = home?.preferences.layout ?? (project?.layout?.mode ? { mode: project.layout.mode } : undefined);
   const resolvedLayout = resolveLayout(layout?.mode ?? 'auto', project?.settings.width ?? 16, project?.settings.height ?? 9);
   const Layout = resolvedLayout === 'portrait' ? PortraitLayout : LandscapeLayout;
@@ -88,7 +91,7 @@ export function App() {
     setSelection({ clipId, trackId });
     if (clipId || trackId) setInspectorOpen(true);
   }, []);
-  function selectCaption(clipId?: string, trackId?: string, extend = false) {
+  const selectCaption = useCallback((clipId?: string, trackId?: string, extend = false) => {
     setSelection({ clipId, trackId });
     setSelectedCaptions((previous) => {
       if (!clipId) return new Set();
@@ -98,7 +101,7 @@ export function App() {
       return next;
     });
     setInspectorOpen(true);
-  }
+  }, []);
 
   function saveLayout(value: LayoutPreferences) {
     if (!home) return;
@@ -108,6 +111,10 @@ export function App() {
   }
   const { playing, playhead } = playback;
   const inspected = project && selection.clipId ? findClip(project, selection.clipId)?.clip : undefined;
+  const previewRange = playback.previewRange;
+  const previewStart = inspected?.start ?? 0;
+  const previewEnd = previewStart + (inspected?.duration ?? 0);
+  const previewSelectedAnimation = useCallback(() => previewRange(previewStart, previewEnd), [previewRange, previewStart, previewEnd]);
   const inspectedCaption = project && selection.clipId ? findCaption(project, selection.clipId) : undefined;
   const inspectedCaptionTrack = inspectedCaption?.track ?? (project && captionTrack(project, selection.trackId));
 
@@ -132,7 +139,7 @@ export function App() {
     });
   }
 
-  function edit(recipe: (draft: Project) => void) {
+  const edit = useCallback((recipe: (draft: Project) => void) => {
     const before = useProject.getState().current;
     storeEdit(recipe);
     const next = useProject.getState().current;
@@ -140,7 +147,7 @@ export function App() {
       setDirty(true);
       void window.desktop.stage(next.project).catch(() => setError(s.operationFailed));
     }
-  }
+  }, [storeEdit]);
 
   async function openEditor(opened: OpenProject) {
     playback.stop();
@@ -153,13 +160,14 @@ export function App() {
     if (files.length) setModal({ kind: 'relink' });
   }
 
-  function addText(kind: keyof typeof textKinds) {
+  function addText(kind: keyof typeof textKinds, style?: TextStyle) {
     if (!project || busy) return;
     const preset = textKinds[kind];
+    const appearance = style ?? preset.style;
     const clip: Clip = { id: crypto.randomUUID(), type: 'text',
       start: alignFrame(playhead, project.settings.fps), duration: 3, text: s[kind],
-      style: { ...preset.style, ...(project.settings.width <= project.settings.height && {
-        fontSize: (preset.style.fontSize ?? 64) * project.settings.height / 1920,
+      style: { ...appearance, ...(project.settings.width <= project.settings.height && {
+        fontSize: (appearance.fontSize ?? 64) * project.settings.height / 1920,
       }) }, transform: { y: preset.y } };
     let trackId: string | undefined;
     edit((draft) => {
@@ -256,7 +264,6 @@ export function App() {
       playback.stop();
       audio.current.close();
       select();
-      setTab('media');
     });
   }
 
@@ -284,7 +291,7 @@ export function App() {
       change();
       try {
         const next = useProject.getState().current;
-        if (next) acceptSaved(await window.desktop.save(next.project));
+        if (next) { acceptSaved(await window.desktop.save(next.project)); setDirty(false); }
       } catch (failure) {
         if (action === 'undo') redo();
         else undo();
@@ -432,6 +439,8 @@ export function App() {
         <IconButton label={s.undo} shortcut="Ctrl+Z" disabled={busy || !past.length} onClick={() => stepHistory('undo')}><Undo2 size={17} /></IconButton>
         <IconButton label={s.redo} shortcut="Ctrl+Shift+Z" disabled={busy || !future.length} onClick={() => stepHistory('redo')}><Redo2 size={17} /></IconButton>
         <div className="editor-canvas-info">
+          <button className="resolution-chip" title={s.aspect} aria-label={s.aspect + ' ' + canvasRatio}
+            onClick={() => setModal({ kind: 'projectSettings' })}>{canvasRatio}</button>
           <button className="resolution-chip" onClick={() => setModal({ kind: 'projectSettings' })}>
             {current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}
           </button>
@@ -478,7 +487,7 @@ export function App() {
           <button className="mt-3" onClick={() => setModal({ kind: 'projectSettings' })}>{s.editSettings}</button>
         </aside> : inspected?.shape ? <ShapeInspector project={current.project} clip={inspected} edit={edit} /> :
           inspected?.type === 'text' ? <TextInspector key={inspected.id} project={current.project} clip={inspected} edit={edit}
-          previewAnimation={() => playback.previewRange(inspected.start, inspected.start + inspected.duration)} /> :
+          previewAnimation={previewSelectedAnimation} /> :
           <AudioInspector key={selection.clipId ?? selection.trackId} project={current.project} edit={edit} clipId={selection.clipId} trackId={selection.trackId} />}
         </>}
       />

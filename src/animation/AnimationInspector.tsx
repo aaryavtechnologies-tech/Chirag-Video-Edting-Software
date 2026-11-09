@@ -1,5 +1,6 @@
 import { Segmented, Slider } from '../design-system/Controls';
 import { Select } from '../design-system/Select';
+import { useReducedMotion } from 'framer-motion';
 import { useMemo, useState } from 'react';
 import type { AnimationPhase, AnimationSet, AnimationSlot, Easing } from './schema';
 import { directions, easingNames, granularityValues, staggerOrders } from './schema';
@@ -11,10 +12,11 @@ function AnimationCard({ phase, id, pressed, select }: {
   phase: AnimationPhase; id: string; pressed: boolean; select(): void;
 }) {
   const [hover, setHover] = useState(false);
+  const reduced = useReducedMotion();
   const animation = useMemo(() => ({ [phase]: { preset: id, duration: 0.8 } } satisfies AnimationSet), [phase, id]);
   return <button aria-pressed={pressed} onClick={select} onMouseEnter={() => setHover(true)}
     onMouseLeave={() => setHover(false)} onFocus={() => setHover(true)} onBlur={() => setHover(false)}>
-    <AnimationPreview animation={animation} text={s.styleSample} play={hover} />
+    <AnimationPreview animation={animation} text={s.styleSample} play={hover && !reduced} />
     {s.animationNames[id] ?? id}
   </button>;
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import { Film, FolderOpen, LayoutGrid, List, MoreHorizontal, Play, Plus, Search, Settings2, PanelsTopLeft } from 'lucide-react';
+import { ScrollHints } from '../design-system/ScrollHints';
 import { IconButton } from '../design-system/IconButton';
 import { Select } from '../design-system/Select';
 import type { ratios } from '../lib/geometry';
@@ -39,7 +40,7 @@ export function Home({ recent, busy, create, open, settings, action }: {
       </nav>
       <button className="mt-auto" onClick={settings} disabled={busy}><Settings2 size={16} />{s.settings}</button>
     </aside>
-    <section className="workspace">
+    <ScrollHints selector=".workspace"><section className="workspace">
       <header className="home-header">
         <h1>{s.projects}</h1>
         <div className="home-filters">
@@ -95,6 +96,6 @@ export function Home({ recent, busy, create, open, settings, action }: {
           </Menu.Root>
         </article>)}
       </div>
-    </section>
+    </section></ScrollHints>
   </main>;
 }

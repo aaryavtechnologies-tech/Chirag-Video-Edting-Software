@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Rebuilt Home, the frameless editor, preview controls, and timeline around a shared dark and light theme.
+- Added ratio shortcuts, project sorting, a draggable timeline overview, and compact text and animation controls.
+- Unified color picking and gradient stop editing, and added a preview and output summary to the export dialog.
+- Added Electron viewport and scale regression coverage for Home and the editor.
+
 ## 0.3.0
 
 - Added the editor shell and portrait and landscape layouts, 40 bundled fonts, and JSON text and caption libraries.

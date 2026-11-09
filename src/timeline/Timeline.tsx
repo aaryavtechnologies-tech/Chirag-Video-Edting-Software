@@ -1,8 +1,9 @@
 import { Eye, EyeOff, Film, Flag, GripVertical, Image, Lock, LockOpen, Magnet, Maximize, MousePointer2, Music, Scissors, Trash2, Type, Volume2, VolumeX, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { ScrollHints } from '../design-system/ScrollHints';
 import { ContextActions } from '../design-system/ContextActions';
 import { IconButton } from '../design-system/IconButton';
 import { TimelineNavigator } from './TimelineNavigator';
-import { Fragment, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { CaptionTimelineRow } from '../captions/CaptionTimelineRow';
 import { strings as s } from '../lib/strings';
 import { alignFrame, timecode } from '../lib/time';
@@ -59,15 +60,15 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   const clipboard = useRef<ClipboardClip[]>([]);
   const fps = project.settings.fps;
   const length = projectDuration(project);
-  const tracks = [...project.tracks.filter((track) => track.kind === 'video').reverse(),
-    ...project.tracks.filter((track) => track.kind === 'audio')];
+  const tracks = useMemo(() => [...project.tracks.filter((track) => track.kind === 'video').reverse(),
+    ...project.tracks.filter((track) => track.kind === 'audio')], [project.tracks]);
   const captionRows = onCaptionSelect && selectedCaptions && project.captionTracks?.map((track) =>
     <CaptionTimelineRow key={track.id} track={track} zoom={zoom} fps={fps} edit={edit}
       selected={selectedCaptions} select={onCaptionSelect} playhead={playhead} />);
   const firstAudio = tracks.findIndex((track) => track.kind === 'audio');
   const width = Math.max(viewport.width - labelsWidth, (length + 8) * zoom);
   const pxToTime = (x: number) => Math.max(0, x / zoom);
-  const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
+  const assets = useMemo(() => new Map(project.assets.map((asset) => [asset.id, asset])), [project.assets]);
   useEffect(() => {
     if (focusedClip) setSelected((current) => current.has(focusedClip) ? current : new Set([focusedClip]));
   }, [focusedClip]);
@@ -280,6 +281,19 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
     });
   }
 
+  function openClipActions(event: React.MouseEvent, clip: Clip, track: Track) {
+    if (busy) return;
+    event.preventDefault();
+    if (!selected.has(clip.id)) { setSelected(new Set([clip.id])); onSelect(clip.id, track.id); }
+    setMenu({ id: clip.id, x: event.clientX, y: event.clientY });
+  }
+  const clipActions = useRef({ startClip, openClipActions });
+  clipActions.current = { startClip, openClipActions };
+  const startBlock = useCallback((event: PointerEvent, clip: Clip, track: Track, kind: 'move' | 'left' | 'right') =>
+    clipActions.current.startClip(event, clip, track, kind), []);
+  const menuBlock = useCallback((event: React.MouseEvent, clip: Clip, track: Track) =>
+    clipActions.current.openClipActions(event, clip, track), []);
+
   const visibleStart = Math.max(0, (viewport.left - 100) / zoom);
   const visibleEnd = (viewport.left + viewport.width + 100) / zoom;
   const step = [0.25, 0.5, 1, 2, 5, 10, 15, 30, 60].find((value) => value * zoom >= 60) ?? 60;
@@ -322,7 +336,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
         setZoom(next);
         requestAnimationFrame(() => { if (pane.current) pane.current.scrollLeft = start * next; });
       }} />
-    <div className="timeline-scroll" ref={pane} tabIndex={0}
+    <ScrollHints selector=".timeline-scroll"><div className="timeline-scroll" ref={pane} tabIndex={0}
       onBlur={() => { spacePan.current = false; }}
       onKeyDown={(event) => {
         if (event.code !== 'Space' || event.target !== event.currentTarget) return;
@@ -426,13 +440,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
               .map((clip) => <ClipBlock key={clip.id} clip={clip} asset={assets.get(clip.assetId ?? '')} zoom={zoom}
                 active={selected.has(clip.id)} delta={gesture && 'ids' in gesture && gesture.ids.has(clip.id) ? dragDelta : 0}
                 gesture={gesture && 'clip' in gesture ? gesture.kind : undefined}
-                context={(event) => {
-                  if (busy) return;
-                  event.preventDefault();
-                  if (!selected.has(clip.id)) { setSelected(new Set([clip.id])); onSelect(clip.id, track.id); }
-                  setMenu({ id: clip.id, x: event.clientX, y: event.clientY });
-                }}
-                start={(event, kind) => startClip(event, clip, track, kind)} />)}
+                context={menuBlock} start={startBlock} track={track} />)}
           </div>
         </div></Fragment>)}
         {firstAudio < 0 && captionRows}
@@ -450,7 +458,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
           height: Math.abs(gesture.origin.y - gesture.point.y),
         }} />}
       </div>
-    </div>
+    </div></ScrollHints>
     {menu && <ContextActions x={menu.x} y={menu.y} close={() => setMenu(undefined)} items={[
       { label: s.split, icon: Scissors, shortcut: 'S', run: split },
       ...(findClip(project, menu.id)?.clip.type === 'video' && assets.get(findClip(project, menu.id)?.clip.assetId ?? '')?.hasAudio ? [
@@ -462,10 +470,10 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   </section>;
 }
 
-function ClipBlock({ clip, asset, zoom, active, delta, gesture, start, context }: {
-  clip: Clip; asset?: Asset; zoom: number; active: boolean; delta: number; gesture?: 'move' | 'left' | 'right';
-  start(event: PointerEvent, kind: 'move' | 'left' | 'right'): void;
-  context(event: React.MouseEvent): void;
+const ClipBlock = memo(function ClipBlock({ clip, track, asset, zoom, active, delta, gesture, start, context }: {
+  clip: Clip; track: Track; asset?: Asset; zoom: number; active: boolean; delta: number; gesture?: 'move' | 'left' | 'right';
+  start(event: PointerEvent, clip: Clip, track: Track, kind: 'move' | 'left' | 'right'): void;
+  context(event: React.MouseEvent, clip: Clip, track: Track): void;
 }) {
   const name = clip.text ?? asset?.path.split(/[\\/]/).at(-1) ?? s[clip.type];
   const left = (clip.start + (gesture === 'right' ? 0 : delta)) * zoom;
@@ -475,11 +483,11 @@ function ClipBlock({ clip, asset, zoom, active, delta, gesture, start, context }
   return <div role="button" tabIndex={0} aria-label={name} aria-pressed={active} data-clip-id={clip.id}
     className={`timeline-clip clip-${clip.type}${active ? ' selected' : ''}`}
     style={{ left, width: Math.max(3, width), backgroundImage: tile || undefined }}
-    onPointerDown={(event) => start(event, 'move')} onContextMenu={context}>
+    onPointerDown={(event) => start(event, clip, track, 'move')} onContextMenu={(event) => context(event, clip, track)}>
     <span title={name}><Icon size={12} aria-hidden="true" />{name}</span>
     {asset?.waveformPath && (clip.type === 'audio' || (clip.type === 'video' && !clip.muted)) &&
       <Waveform asset={asset} clip={clip} />}
-    <i className="trim left" onPointerDown={(event) => start(event, 'left')} />
-    <i className="trim right" onPointerDown={(event) => start(event, 'right')} />
+    <i className="trim left" onPointerDown={(event) => start(event, clip, track, 'left')} />
+    <i className="trim right" onPointerDown={(event) => start(event, clip, track, 'right')} />
   </div>;
-}
+});

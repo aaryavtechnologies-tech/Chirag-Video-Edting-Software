@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { ScrollHints } from '../design-system/ScrollHints';
 import { strings as s } from '../lib/strings';
 
 export function Modal({ title, close, busy, children, subtitle, size = 'medium', footer }: {
@@ -22,7 +23,7 @@ export function Modal({ title, close, busy, children, subtitle, size = 'medium',
             {subtitle && <Dialog.Description className="muted">{subtitle}</Dialog.Description>}</div>
           <Dialog.Close aria-label={s.cancel} disabled={busy}><X size={16} aria-hidden /></Dialog.Close>
         </div>
-        <div className="modal-body" tabIndex={0}>{children}</div>
+        <ScrollHints className="modal-scroll" selector=".modal-body"><div className="modal-body" tabIndex={0}>{children}</div></ScrollHints>
         {footer && <footer className="modal-footer">{footer}</footer>}
       </Dialog.Content>
     </Dialog.Portal>

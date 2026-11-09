@@ -1,6 +1,6 @@
 import { Grid3X3, Maximize, Pause, Play, Repeat, Ruler, Scan, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from '../design-system/IconButton';
-import { ratios } from '../lib/geometry';
+import { ratioLabel } from '../lib/geometry';
 import { Select } from '../design-system/Select';
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent } from 'react';
 import { strings as s } from '../lib/strings';
@@ -242,7 +242,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
     seek(Math.min(duration, Math.max(0, alignFrame(playhead + direction / fps, fps))));
   const editing = inline && findClip(project, inline)?.clip;
 
-  const ratio = Object.entries(ratios).find(([, [x, y]]) => Math.abs(width * y - height * x) <= Math.max(x, y))?.[0];
+  const ratio = ratioLabel(width, height);
   return <div className="editor-stage" ref={stage}>
     <div className="preview-options">
       <span className="preview-ratio">{ratio ?? `${width} × ${height}`}</span>

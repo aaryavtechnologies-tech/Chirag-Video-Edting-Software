@@ -1,7 +1,7 @@
 import { AudioLines, Film, Gauge, SlidersHorizontal } from 'lucide-react';
 import { NumberInput } from '../../design-system/Controls';
 import { Select } from '../../design-system/Select';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { Clip, Project, Track } from '../../types/project';
 import { strings as s } from '../../lib/strings';
 import { changeSpeed, detachAudio } from '../../timeline/audioEdits';
@@ -11,7 +11,7 @@ interface Props {
   project: Project; clipId?: string; trackId?: string; edit(recipe: (draft: Project) => void): void;
 }
 
-export function AudioInspector({ project, clipId, trackId, edit }: Props) {
+export const AudioInspector = memo(function AudioInspector({ project, clipId, trackId, edit }: Props) {
   const [tab, setTab] = useState<'basic' | 'speed' | 'adjust' | 'audio'>('basic');
   const [error, setError] = useState('');
   const found = clipId ? findClip(project, clipId) : undefined;
@@ -121,7 +121,7 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
     </fieldset>}
     {error && <p className="muted" role="status">{error}</p>}
   </aside>;
-}
+});
 
 function NumberControl({ label, value, min, max, step, change }: {
   label: string; value: number; min: number; max: number; step: number; change(value: number): void;

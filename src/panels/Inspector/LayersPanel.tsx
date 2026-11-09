@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { strings as s } from '../../lib/strings';
 import type { Project } from '../../types/project';
@@ -8,7 +8,7 @@ import { IconButton } from '../../design-system/IconButton';
 
 const dragType = 'application/x-editor-layer-track';
 
-export function LayersPanel({ project, edit, onSelect, onCaptionSelect, active }: {
+export const LayersPanel = memo(function LayersPanel({ project, edit, onSelect, onCaptionSelect, active }: {
   project: Project; edit(recipe: (draft: Project) => void): void;
   onSelect(id?: string, trackId?: string): void; onCaptionSelect(id?: string, trackId?: string): void;
   active?: string;
@@ -64,4 +64,4 @@ export function LayersPanel({ project, edit, onSelect, onCaptionSelect, active }
       </section>;
     })}
   </aside>;
-}
+});

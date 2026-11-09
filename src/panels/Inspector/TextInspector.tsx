@@ -2,7 +2,7 @@ import { AlignCenter, AlignLeft, AlignRight, Bold, CaseUpper, Move, Palette, Pla
 import { NumberInput, Segmented, Switch } from '../../design-system/Controls';
 import { IconButton } from '../../design-system/IconButton';
 import { Select } from '../../design-system/Select';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { strings as s } from '../../lib/strings';
 import { builtInStyles } from '../../lib/textPresets';
 import { bundledFonts } from '../../text/fontCatalog';
@@ -24,7 +24,7 @@ const defaults = {
   background: { color: '#000000', opacity: 0.8, padding: 12, radius: 8 },
 };
 
-export function TextInspector({ clip, project, edit, previewAnimation }: {
+export const TextInspector = memo(function TextInspector({ clip, project, edit, previewAnimation }: {
   clip: Clip; project: Project; edit: Edit; previewAnimation(): void;
 }) {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
@@ -237,7 +237,7 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
     </fieldset>
     {fontPicker && <FontPicker text={clip.text ?? ''} select={(fontFamily) => set({ fontFamily })} close={() => setFontPicker(false)} />}
   </aside>;
-}
+});
 
 function Choice<T extends keyof typeof s>({ label, value, values, change }: {
   label: string; value: T; values: readonly T[]; change(value: T): void;

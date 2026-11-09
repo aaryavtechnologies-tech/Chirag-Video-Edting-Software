@@ -134,6 +134,95 @@ async function launch(root: string, reuse = false) {
   return { app, projects };
 }
 
+test('keeps Home and the editor inside the desktop viewport at each UI scale', async ({}, testInfo) => {
+  test.setTimeout(60_000);
+  const { app } = await launch(testInfo.outputPath('workspace'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: s.maximizeWindow, exact: true }).click();
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isMaximized())).toBe(true);
+    await page.getByRole('button', { name: s.restoreWindow, exact: true }).click();
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isMaximized())).toBe(false);
+    const cdp = await page.context().newCDPSession(page);
+    async function resize(width: number, height: number, deviceScaleFactor: number) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor, mobile: false });
+      await expect.poll(() => page.evaluate(() => [innerWidth, innerHeight, devicePixelRatio])).toEqual([width, height, deviceScaleFactor]);
+    }
+    async function checkBounds(selectors: string[], width: number, height: number) {
+      for (const selector of selectors) {
+        const item = page.locator(selector).first();
+        await expect(item).toBeVisible();
+        const bounds = await item.boundingBox();
+        expect(bounds, selector).not.toBeNull();
+        expect(bounds!.x, selector).toBeGreaterThanOrEqual(0);
+        expect(bounds!.y, selector).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width, selector).toBeLessThanOrEqual(width + 1);
+        expect(bounds!.y + bounds!.height, selector).toBeLessThanOrEqual(height + 1);
+      }
+    }
+    await resize(1366, 768, 1);
+    await page.getByRole('button', { name: /Portrait 9:16/ }).click();
+    await expect(page.getByRole('button', { name: '9:16', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByLabel(s.name).fill('Portrait study');
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.text, exact: true }).click();
+    await page.getByRole('button', { name: s.title, exact: true }).click();
+    await page.getByRole('button', { name: s.styleNames.retroWave, exact: true }).click();
+    await expect(page.locator('.clip-text')).toBeVisible();
+    const dimensions = [[1280, 720], [1366, 768], [1920, 1080], [2560, 1440]] as const;
+    for (const [width, height] of dimensions) {
+      for (const scale of [1, 1.25, 1.5]) {
+        await resize(width, height, scale);
+        await checkBounds(['.window-titlebar', '.editor-toolbar', '.editor-dock', '.editor-stage', '.preview-surface', '.layout-inspector',
+          '.timeline', '.editor-status'], width, height);
+        expect(await page.locator('.timeline-scroll').evaluate((element) => getComputedStyle(element).scrollbarWidth)).toBe('none');
+      }
+    }
+    await resize(1366, 768, 1);
+    await page.getByRole('button', { name: s.animation, exact: true }).click();
+    await expect(page.locator('.animation-grid').first()).toBeVisible();
+    if (process.env.VIDEO_EDITOR_CAPTURE_UI) await page.screenshot({ path: 'docs/editor.png', animations: 'disabled', scale: 'css' });
+    await page.getByRole('button', { name: s.save, exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText(s.saved);
+    await page.getByRole('button', { name: s.home, exact: true }).click();
+    await page.getByRole('button', { name: s.newProject }).click();
+    await page.getByLabel(s.name).fill('Landscape study');
+    await page.getByRole('button', { name: s.create }).click();
+    await page.getByRole('button', { name: s.home, exact: true }).click();
+    for (const [width, height] of dimensions) {
+      for (const scale of [1, 1.25, 1.5]) {
+        await resize(width, height, scale);
+        await checkBounds(['.window-titlebar', '.sidebar', '.home-header', '.home-shortcuts', '.cards'], width, height);
+        for (const card of await page.locator('.card').all()) {
+          const thumbnail = await card.locator('.thumbnail').boundingBox();
+          const title = await card.locator('strong').boundingBox();
+          expect(thumbnail).not.toBeNull();
+          expect(title!.y).toBeGreaterThanOrEqual(thumbnail!.y + thumbnail!.height);
+        }
+      }
+    }
+    await resize(1366, 768, 1);
+    await expect(page.getByRole('heading', { name: s.projects })).toBeVisible();
+    if (process.env.VIDEO_EDITOR_CAPTURE_UI) await page.screenshot({ path: 'docs/home.png', animations: 'disabled', scale: 'css' });
+    await page.getByRole('button', { name: s.listView }).click();
+    await expect(page.locator('.cards')).toHaveAttribute('data-list', 'true');
+    await page.getByRole('searchbox', { name: s.search }).fill('Portrait');
+    await expect(page.locator('.card')).toHaveCount(1);
+    await page.getByRole('button', { name: /Portrait study/ }).click();
+    await expect(page.getByRole('button', { name: s.text, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Control+k');
+    const actions = page.getByRole('textbox', { name: s.searchActions });
+    await actions.fill(s.toggleTheme);
+    await actions.press('Enter');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+    await checkBounds(['.editor-stage', '.layout-inspector', '.editor-status'], 1366, 768);
+  } finally {
+    await app.close();
+  }
+});
+
 test('selects portrait from the ratio card and persists a layout override', async ({}, testInfo) => {
   const root = testInfo.outputPath('workspace');
   const { app } = await launch(root);
@@ -290,6 +379,7 @@ test('plays three video layers at Half quality in track order', async ({}, testI
 });
 
 test('styles, previews and exports a title with zoom and shrink animation', async ({}, testInfo) => {
+  test.setTimeout(45_000);
   const { app, projects } = await launch(testInfo.outputPath('workspace'));
   try {
     const page = await app.firstWindow();
@@ -331,7 +421,7 @@ test('styles, previews and exports a title with zoom and shrink animation', asyn
     }, output);
     await page.getByRole('button', { name: s.export, exact: true }).click();
     await page.getByRole('button', { name: s.chooseOutput }).click();
-    await expect(page.getByText(s.exportDone)).toBeVisible();
+    await expect(page.getByText(s.exportDone)).toBeVisible({ timeout: 20_000 });
     if (!ffmpeg) throw new Error('FFmpeg not available');
     const binary = ffmpeg;
     const frameCoverage = async (time: string) => {

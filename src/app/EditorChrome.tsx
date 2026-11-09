@@ -3,6 +3,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
  import { AudioLines, Captions, Clapperboard, FolderOpen, Moon, Search, Shapes, Sparkles, Sun, Type, WandSparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { strings as s } from '../lib/strings';
+import { ScrollHints } from '../design-system/ScrollHints';
 import { IconButton } from '../design-system/IconButton';
 import { Modal } from './Modal';
 
@@ -11,6 +12,8 @@ const docks = [
   ['media', FolderOpen], ['audio', AudioLines], ['text', Type], ['captions', Captions],
   ['shapes', Shapes], ['effects', Sparkles], ['transitions', WandSparkles], ['templates', Clapperboard],
 ] as const;
+
+export const dockNames: readonly Dock[] = docks.map(([key]) => key);
 
 export function EditorDock({ active, select, children }: {
   active: Dock; select(dock: Dock): void; children: ReactNode;
@@ -21,10 +24,10 @@ export function EditorDock({ active, select, children }: {
       {docks.map(([key, Icon]) => <IconButton key={key} label={s[key]} aria-pressed={active === key}
         onClick={() => select(key)}><Icon size={20} aria-hidden="true" /><span>{s[key]}</span></IconButton>)}
     </nav>
-    <motion.div className="editor-sidebar" key={active} initial={reduced ? false : { opacity: 0.6 }}
+    <ScrollHints selector=".editor-sidebar" className="dock-content"><motion.div className="editor-sidebar" key={active} initial={reduced ? false : { opacity: 0.6 }}
       animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
       {children}
-    </motion.div>
+    </motion.div></ScrollHints>
   </div>;
 }
 

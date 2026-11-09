@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { defaultPanels, resolveLayout, type LayoutPreferences, type ResolvedLayout } from './settings';
+import { ScrollHints } from '../design-system/ScrollHints';
 import { PanelResizer } from '../app/PanelResizer';
 
 const LayoutContext = createContext<ResolvedLayout>('landscape');
@@ -39,6 +40,6 @@ export function LayoutColumns({ dock, preview, inspector, preferences, savePanel
     {preview}
     {inspectorOpen && <PanelResizer width={panels.inspector} right resize={(value) => update('inspector', value)}
       onCommit={(value) => commit('inspector', value)} />}
-    {inspectorOpen && <div className="layout-inspector">{inspector}</div>}
+    {inspectorOpen && <ScrollHints className="layout-inspector" selector=".inspector">{inspector}</ScrollHints>}
   </div>;
 }

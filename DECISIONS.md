@@ -12,6 +12,13 @@
 
 - The text update extends the existing animation enums in the project schema. Existing projects keep their animation settings. The new enum values require Video Editor 0.2.0 or later.
 
+- U3 letterboxes each project inside a uniform 16:10 card frame and crops its saved image only within the matching project ratio. Recent projects created by earlier versions acquire frame-rate metadata when opened or saved again.
+- U5 retains the existing timeline track model and caption editing behavior. The overview uses the timeline's padded time range so users can navigate into free space for placement.
+- U7 keeps color and gradient gestures local until Apply or pointer release, so a commit creates one undo entry. The editor canvas updates on commit. The project background picker preserves the opaque background supported by export.
+- U8 adds clip and media context menus while track and caption actions remain in their existing controls. Track headers keep a fixed width. The timeline keeps the existing detach-audio link model.
+- U8 shows the project audio sample rate as information. Encoder output settings and codec selection stay in the export dialog and pipeline.
+- U9 checks scale factors through Chromium emulation inside Electron. Native Windows monitor scaling and snapping need a manual desktop pass.
+
 - M1 uses the supplied JSON Schema as the file contract. Optional defaults remain optional on load, and additional fields survive a save.
 - Project creation uses separate portable folders and refuses to overwrite an existing folder. Portrait and square presets use the same long-edge limit as landscape presets. Custom sizes are entered as even pixel dimensions.
 - Home cards use a canvas-color thumbnail for empty projects. Media-derived previews belong to the media and preview milestones.

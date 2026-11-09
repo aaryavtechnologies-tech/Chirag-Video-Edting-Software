@@ -2,6 +2,16 @@
 
 A desktop video editor built with Electron, React 18, TypeScript, Vite, Tailwind, and Zustand.
 
+## Workspace
+
+Home shows recent projects in a grid or list, with ratio shortcuts for new projects. The editor has resizable side panels, a viewport toolbar, and a timeline overview. Use **Ctrl+wheel** to zoom around the pointer, **Shift+wheel** to pan horizontally, or middle-drag to pan both axes.
+
+![Home with landscape and portrait project cards](docs/home.png)
+
+![Portrait project with the text animation inspector open](docs/editor.png)
+
+The Electron smoke suite checks the renderer at 1280×720, 1366×768, 1920×1080, and 2560×1440 with simulated device scale factors of 1, 1.25, and 1.5. Set `VIDEO_EDITOR_CAPTURE_UI=1` and run the viewport test to regenerate the screenshots.
+
 ## Setup
 
 Install Node.js 22.12 or newer and run `npm ci`. Electron downloads a platform binary when first needed.
