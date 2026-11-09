@@ -30,14 +30,22 @@ export function drawHandles(ctx: CanvasRenderingContext2D, size: Bounds, transfo
   ctx.rotate(radians(transform.rotation));
   ctx.strokeStyle = '#aa9aff';
   ctx.fillStyle = '#ffffff';
-  ctx.lineWidth = 2 * unit;
+  ctx.lineWidth = unit;
   ctx.strokeRect(-x, -y, 2 * x, 2 * y);
   ctx.beginPath();
   ctx.moveTo(0, -y);
   ctx.lineTo(0, -y - 22 * unit);
   ctx.stroke();
-  for (const point of [{ x: -x, y: -y }, { x, y: -y }, { x: -x, y }, { x, y }, { x: 0, y: -y - 22 * unit }]) {
+  for (const point of [{ x: -x, y: -y }, { x, y: -y }, { x: -x, y }, { x, y }]) {
     ctx.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
   }
+  ctx.translate(0, -y - 22 * unit);
+  ctx.beginPath();
+  ctx.arc(0, 0, 8 * unit, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, 3.5 * unit, Math.PI / 4, Math.PI * 1.9);
+  ctx.stroke();
   ctx.restore();
 }

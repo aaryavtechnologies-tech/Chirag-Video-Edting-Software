@@ -1,3 +1,6 @@
+import { Grid3X3, Maximize, Pause, Play, Repeat, Ruler, Scan, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import { IconButton } from '../design-system/IconButton';
+import { ratios } from '../lib/geometry';
 import { Select } from '../design-system/Select';
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent } from 'react';
 import { strings as s } from '../lib/strings';
@@ -26,10 +29,11 @@ interface Props {
   selected?: string; onSelect(clipId?: string, trackId?: string): void;
   snapshot: MutableRefObject<(() => string | undefined) | undefined>;
   onQuality?(quality: Quality): void;
-  safeGuides?: boolean;
+  safeGuides?: boolean; toggleGuides(): void;
 }
 
-export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot, onQuality, safeGuides }: Props) {
+export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak, selected, onSelect, snapshot, onQuality, safeGuides, toggleGuides }: Props) {
+  const stage = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const media = useRef(new MediaElements());
   const redraw = useRef<() => void>(() => undefined);
@@ -133,7 +137,7 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
           current.type === 'text' ? animateText(current, transform, playhead) : transform, unit);
       }
       if (drag && !playing && handles) {
-        ctx.strokeStyle = '#f9b257';
+        ctx.strokeStyle = '#f472b6';
         ctx.lineWidth = unit;
         ctx.beginPath();
         if (drag.guides.x >= 0) {
@@ -238,7 +242,18 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
     seek(Math.min(duration, Math.max(0, alignFrame(playhead + direction / fps, fps))));
   const editing = inline && findClip(project, inline)?.clip;
 
-  return <div className="editor-stage">
+  const ratio = Object.entries(ratios).find(([, [x, y]]) => Math.abs(width * y - height * x) <= Math.max(x, y))?.[0];
+  return <div className="editor-stage" ref={stage}>
+    <div className="preview-options">
+      <span className="preview-ratio">{ratio ?? `${width} × ${height}`}</span>
+      <IconButton label={s.safeZones} aria-pressed={safeGuides} onClick={toggleGuides}><Scan size={15} /></IconButton>
+      <IconButton label={s.grid} aria-pressed={grid} onClick={() => setGrid(!grid)}><Grid3X3 size={15} /></IconButton>
+      <IconButton label={s.rulers} aria-pressed={rulers} onClick={() => setRulers(!rulers)}><Ruler size={15} /></IconButton>
+      <Select label={s.previewZoom} value={viewZoom} onChange={(event) => setViewZoom(event.target.value)}>
+        <option value="fit">{s.fitPreview}</option>
+        {['50', '100', '200'].map((zoom) => <option key={zoom} value={zoom}>{zoom}%</option>)}
+      </Select>
+    </div>
     <div className="preview-viewport" tabIndex={0} aria-label={s.previewTools} onBlur={() => { space.current = false; }}
       onKeyDown={(event) => {
         if (event.code !== 'Space' || event.target !== event.currentTarget) return;
@@ -294,24 +309,29 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
     </div>
     </div>
     <div className="transport">
-      <button onClick={() => step(-1)} aria-label={s.previousFrame}>⏮</button>
-      <button disabled={duration <= 0} onClick={toggle}>{playing ? s.pause : s.play}</button>
-      <button onClick={() => step(1)} aria-label={s.nextFrame}>⏭</button>
-      <button aria-pressed={loop} onClick={() => setLoop(!loop)}>{s.loop}</button>
-      <label>{s.zoom}<Select label={s.zoom} value={viewZoom} onChange={(event) => setViewZoom(event.target.value)}>
-        <option value="fit">{s.fitTimeline}</option>
-        {['50', '100', '200'].map((zoom) => <option key={zoom} value={zoom}>{zoom}%</option>)}
-      </Select></label>
-      <button aria-pressed={grid} onClick={() => setGrid(!grid)}>{s.grid}</button>
-      <button aria-pressed={rulers} onClick={() => setRulers(!rulers)}>{s.rulers}</button>
-      <span className="muted">{timecode(playhead, fps)}</span>
-      <label>{s.quality}<Select label={s.quality} value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
-        {(Object.keys(qualityDivisors) as Quality[]).map((key) => <option key={key} value={key}>{s[key]}</option>)}
-      </Select></label>
-      <label>{s.masterVolume}<input type="range" min={0} max={1} step={0.01} value={volume}
-        onChange={(event) => setVolume(event.target.valueAsNumber)} /></label>
-      <meter aria-label={s.audioMeter} min={0} max={1} value={Math.min(1, peak)} />
+      <time>{timecode(playhead, fps)} <span>/ {timecode(duration, fps)}</span></time>
+      <div className="transport-playback">
+        <IconButton onClick={() => step(-1)} label={s.previousFrame}><SkipBack size={15} /></IconButton>
+        <IconButton className="primary transport-play" disabled={duration <= 0} onClick={toggle} label={playing ? s.pause : s.play}>
+          {playing ? <Pause size={16} /> : <Play size={16} />}
+        </IconButton>
+        <IconButton onClick={() => step(1)} label={s.nextFrame}><SkipForward size={15} /></IconButton>
+        <IconButton aria-pressed={loop} onClick={() => setLoop(!loop)} label={s.loop}><Repeat size={15} /></IconButton>
+      </div>
+      <div className="transport-options">
+        <Select label={s.quality} value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
+          {(Object.keys(qualityDivisors) as Quality[]).map((key) => <option key={key} value={key}>{s[key]}</option>)}
+        </Select>
+        <label title={s.masterVolume}>{volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          <input aria-label={s.masterVolume} type="range" min={0} max={1} step={0.01} value={volume}
+            onChange={(event) => setVolume(event.target.valueAsNumber)} />
+        </label>
+        <meter aria-label={s.audioMeter} min={0} max={1} value={Math.min(1, peak)} />
+        <IconButton label={s.fullscreenPreview} onClick={() => {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void stage.current?.requestFullscreen();
+        }}><Maximize size={15} /></IconButton>
+      </div>
     </div>
-    <p className="muted">{width} × {height} · {fps} {s.fps}</p>
   </div>;
 }

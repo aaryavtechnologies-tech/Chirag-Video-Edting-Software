@@ -1,3 +1,5 @@
+import { AudioLines, Film, FolderOpen, Image, LayoutGrid, List, Search } from 'lucide-react';
+import { IconButton } from '../design-system/IconButton';
 import { Select } from '../design-system/Select';
 import { useState } from 'react';
 import { strings as s } from '../lib/strings';
@@ -5,6 +7,8 @@ import type { MediaProgress } from '../types/desktop';
 import type { Asset } from '../types/project';
 import { assetDragType } from '../timeline/Timeline';
 
+const assetIcons = { audio: AudioLines, image: Image, video: Film };
+const assetName = (asset: Asset) => asset.path.split(/[\\/]/).at(-1) ?? asset.path;
 const filters = ['all', 'video', 'image', 'audio'] as const;
 
 export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
@@ -13,7 +17,11 @@ export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
   audioOnly?: boolean;
 }) {
   const [filter, setFilter] = useState<typeof filters[number]>('all');
-  const shown = assets.filter((asset) => audioOnly ? asset.type === 'audio' || asset.hasAudio : filter === 'all' || asset.type === filter);
+  const [query, setQuery] = useState('');
+  const [list, setList] = useState(false);
+  const shown = assets.filter((asset) =>
+    (audioOnly ? asset.type === 'audio' || asset.hasAudio : filter === 'all' || asset.type === filter) &&
+    assetName(asset).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
   return <section className="media-bin" onDragOver={(event) => {
     if (event.dataTransfer.types.includes('Files')) event.preventDefault();
@@ -25,17 +33,24 @@ export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
   }}>
     <header className="media-header">
       <h2 className="font-semibold">{audioOnly ? s.audio : s.media}</h2>
-      <button disabled={busy} className="primary" onClick={() => importFiles()}>{s.importMedia}</button>
+      <IconButton label={list ? s.gridView : s.listView} onClick={() => setList(!list)}>
+        {list ? <LayoutGrid size={16} /> : <List size={16} />}
+      </IconButton>
+      <IconButton label={s.importMedia} disabled={busy} className="primary" onClick={() => importFiles()}><FolderOpen size={16} /></IconButton>
     </header>
+    <label className="home-search"><Search size={14} />
+      <input type="search" value={query} aria-label={s.searchMedia} placeholder={s.searchMedia} onChange={(event) => setQuery(event.target.value)} />
+    </label>
     {!audioOnly && <label>{s.filterMedia}
       <Select label={s.filterMedia} value={filter} onChange={(event) => setFilter(filters[event.target.selectedIndex])}>
         {filters.map((kind) => <option key={kind} value={kind}>{s[kind]}</option>)}
       </Select>
     </label>}
     {!shown.length && <p className="muted mt-3">{assets.length ? s.noMediaMatches : s.mediaEmpty}</p>}
-    <ul className="media-grid">
+    <ul className="media-grid" data-list={list}>
       {shown.map((asset) => {
-        const name = asset.path.split(/[\\/]/).at(-1) ?? asset.path;
+        const name = assetName(asset);
+        const AssetIcon = assetIcons[asset.type];
         const progress = proxies[asset.id];
         return <li key={asset.id} title={name} draggable={!busy} onDragStart={(event) => {
           event.dataTransfer.setData(assetDragType, asset.id);
@@ -43,7 +58,7 @@ export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
         }}>
           <div className="media-thumb">
             {asset.thumbPath ? <img alt="" src={`editor-media://thumbnail/${encodeURIComponent(asset.id)}`} /> :
-              <span className="muted">{s[asset.type]}</span>}
+              <AssetIcon size={24} className="muted" aria-label={s[asset.type]} />}
             {asset.duration !== undefined && <span className="media-duration">
               {asset.duration.toFixed(1)}{s.seconds}
             </span>}

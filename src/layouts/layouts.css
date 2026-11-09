@@ -28,10 +28,43 @@
 .chrome-menu [role^="menuitem"] { padding:var(--space-1) var(--space-2); border-radius:4px; outline:none; cursor:pointer; }
 .chrome-menu [data-highlighted] { background:var(--accent); color:white; }
 .chrome-menu [role="separator"] { height:1px; background:var(--line); margin:var(--space-1); }
-@media (max-width:1439px) {
-  .editor-body { grid-template-columns:var(--dock-size) minmax(0,1fr); }
-  .layout-inspector { position:absolute; z-index:3; top:0; right:0; width:var(--inspector-size); box-shadow:var(--shadow); }
-  .editor-body > .editor-stage + .panel-resizer { display:none; }
-  .layout-inspector .inspector { max-height:min(64vh, 100%); }
-  .editor-body[data-inspector-open="true"] .editor-stage { margin-right:min(var(--inspector-size), 22vw); }
-}
+.editor-body { --rail-width:64px; grid-template-columns:min(var(--dock-size),32vw) minmax(0,1fr) min(var(--inspector-size),32vw); gap:6px; padding:6px; }
+.editor-body > .panel-resizer { left:calc(min(var(--dock-size),32vw) + 6px); background:transparent; }
+.editor-body > .editor-stage + .panel-resizer { right:calc(min(var(--inspector-size),32vw) + 6px); }
+.editor-body > .panel-resizer:hover,.editor-body > .panel-resizer:focus-visible { background:var(--accent); }
+.editor-dock,.editor-stage,.layout-inspector { min-width:0; min-height:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--bg-panel); }
+.editor-dock { grid-template-columns:64px minmax(0,1fr); }
+.editor-body[data-dock-open="false"] .editor-dock { grid-template-columns:minmax(0,1fr); }
+.dock-rail { overflow:auto; padding:4px 2px; }
+.dock-rail .tool-icon { position:relative; display:flex; flex:none; flex-direction:column; justify-content:center; gap:2px; width:56px; height:42px; border:0; background:transparent; font-size:9px; }
+.dock-rail .tool-icon[aria-pressed="true"] { background:var(--accent-soft); color:var(--text); }
+.dock-rail .tool-icon[aria-pressed="true"]::before { content:""; position:absolute; inset:8px auto 8px -2px; width:2px; border-radius:4px; background:var(--accent); }
+.editor-sidebar,.inspector { max-height:none; }
+.media-bin { padding:8px; border:0; }
+.media-bin .media-header { display:flex; gap:4px; margin-bottom:6px; }
+.media-header h2 { margin-right:auto; }
+.media-header .tool-icon { width:26px; height:26px; }
+.media-bin .home-search input { width:100%; }
+.media-bin .media-grid[data-list="true"] { grid-template-columns:minmax(0,1fr); }
+.media-grid[data-list="true"] li { display:grid; grid-template-columns:56px minmax(0,1fr); align-items:center; gap:6px; }
+.media-grid[data-list="true"] li > .muted { grid-column:2; }
+.editor-stage { position:relative; display:grid; grid-template-rows:minmax(0,1fr) 44px; align-content:stretch; justify-items:stretch; gap:0; padding:0; }
+.preview-options { position:absolute; z-index:2; inset:6px 6px auto; display:flex; align-items:center; gap:4px; pointer-events:none; }
+.preview-options > * { pointer-events:auto; }
+.preview-options .tool-icon { width:26px; height:26px; }
+.preview-ratio { padding:3px 6px; border:1px solid var(--border); border-radius:6px; background:var(--bg-panel-2); margin-right:auto; }
+.preview-viewport { height:100%; max-height:none; padding:38px 8px 8px; align-items:safe center; container-type:size; background:var(--bg-app); }
+.preview-surface { width:min(100%,calc(100cqh * var(--preview-ratio))); box-shadow:0 4px 18px #0008; }
+.transport { display:flex; flex-wrap:nowrap; justify-content:space-between; gap:4px; padding:4px 6px; border-top:1px solid var(--border); min-width:0; }
+.transport time { white-space:nowrap; font-size:11px; font-variant-numeric:tabular-nums; }
+.transport time span { color:var(--text-dim); }
+.transport-playback,.transport-options { display:flex; align-items:center; gap:3px; }
+.transport .tool-icon { width:26px; height:26px; flex:none; }
+.transport .transport-play { width:32px; height:32px; border-radius:50%; }
+.transport .ui-select { font-size:11px; }
+.transport label { gap:4px; }
+.transport input[type="range"] { width:clamp(26px,4vw,58px); }
+.transport meter { width:28px; }
+.editor-stage { container-type:inline-size; }
+@container (max-width:560px) { .transport meter { display:none; } .transport time span { display:none; } }
+@container (max-width:390px) { .transport label svg { display:none; } .transport time { font-size:10px; } }

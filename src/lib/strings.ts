@@ -1,6 +1,8 @@
 export const strings = {
   applicationMenu: 'Application menu', fileMenu: 'File', editMenu: 'Edit', helpMenu: 'Help',
   openRecent: 'Open recent', exitApp: 'Exit', cut: 'Cut', selectAll: 'Select all', zoomOut: 'Zoom out',
+  previewZoom: 'Preview zoom', fitPreview: 'Fit', fullscreenPreview: 'Full screen preview',
+  searchMedia: 'Search media',
   fullscreen: 'Full screen', resetPanelSizes: 'Reset panel sizes', about: 'About Video Editor',
   aboutDescription: 'A desktop video editor for layered video, audio, and captions.',
   minimize: 'Minimize', maximizeWindow: 'Maximize', restoreWindow: 'Restore window', closeWindow: 'Close window',

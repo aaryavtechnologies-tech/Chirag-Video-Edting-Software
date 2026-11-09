@@ -428,7 +428,7 @@ export function App() {
             if (caption) selectCaption(clipId, caption.track.id);
             else select(clipId, trackId);
           }}
-          snapshot={snapshot} onQuality={setPreviewQuality} safeGuides={showGuides} />}
+          snapshot={snapshot} onQuality={setPreviewQuality} safeGuides={showGuides} toggleGuides={() => setSafeGuides(!showGuides)} />}
         inspector={<>
         <div className="inspector-switch">
           <button aria-pressed={inspectorTab === 'inspector'} onClick={() => setInspectorTab('inspector')}>{s.inspector}</button>
