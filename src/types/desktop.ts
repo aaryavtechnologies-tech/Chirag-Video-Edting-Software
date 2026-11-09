@@ -6,6 +6,7 @@ export type RecentProject = {
   file: string; name: string; editedAt: string; duration: number;
   width: number; height: number; background: string;
   thumbnail?: string;
+  fps?: ProjectSettings['fps'];
 };
 export type Preferences = { folder: string; theme: 'dark' | 'light'; autosave: number; layout?: import('../layouts/settings').LayoutPreferences };
 export type HomeState = { recent: RecentProject[]; preferences: Preferences; recovery?: RecentProject };

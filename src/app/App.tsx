@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { strings as s } from '../lib/strings';
 import { useProject } from '../store/projectStore';
 import type { HomeState, RecentProject } from '../types/desktop';
-import { Home } from './Home';
+import { Home, type ProjectRatio } from './Home';
 import { Modal } from './Modal';
 import { NewProjectForm, PreferencesForm, SaveAsForm } from './ProjectForms';
 import { MediaBin } from '../panels/MediaBin';
@@ -38,7 +38,7 @@ import { TitleBar, type TitleAction } from './TitleBar';
 import type { shapeKinds } from '../lib/visual';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
-type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' | 'about' } |
+type AppDialog = { kind: 'new'; ratio?: ProjectRatio } | { kind: 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' | 'about' } |
   { kind: 'adaptContent'; settings: ProjectSettings } | ProjectDialog;
 
 export function App() {
@@ -465,7 +465,7 @@ export function App() {
         <span>{s[resolvedLayout]}</span>
       </footer>
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
-      create={() => { setError(''); setModal({ kind: 'new' }); }}
+      create={(ratio) => { setError(''); setModal({ kind: 'new', ratio }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}
       open={openProject}
       action={(kind, project) => {
@@ -495,7 +495,7 @@ export function App() {
       onCancelled={() => { setExportOpen(false); setNotice(s.exportCancelled); }}
       close={() => setExportOpen(false)} />}
     {home && modal && <Modal title={title} busy={busy} close={() => { setModal(undefined); setError(''); }}>
-      {modal.kind === 'new' && <NewProjectForm preferences={home.preferences} busy={busy} onFolder={pickFolder}
+      {modal.kind === 'new' && <NewProjectForm initialRatio={modal.ratio} preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onCreate={(value) => void run(async () => {
           if (current && dirty) await window.desktop.save(current.project, snapshot.current?.());
           await openEditor(await window.desktop.create(value));

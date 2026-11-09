@@ -14,23 +14,7 @@ button:disabled { opacity: .55; }
 button:hover:not(:disabled), summary:hover { border-color: #8d86fa; }
 :focus-visible { outline: 2px solid #8d86fa; outline-offset: 2px; }
 .primary { background: var(--accent); color: white; border-color: transparent; font-weight: 600; }
-.home { min-height: 100vh; display: grid; grid-template-columns: 230px minmax(0, 1fr); }
-.sidebar { display: flex; flex-direction: column; gap: .85rem; background: var(--panel); border-right: 1px solid var(--line); padding: 2rem 1.25rem; }
-.brand { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.6rem; }
-.brand span { color: #8d86fa; }
-.workspace { padding: 2.5rem; }
-.empty { border: 1px dashed var(--line); border-radius: 8px; padding: 4rem 1.5rem; margin-top: 2rem; text-align: center; color: var(--muted); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 1.25rem; margin-top: 2rem; }
-.card { position: relative; min-width: 0; }
-.card-open { width: 100%; height: 100%; display: grid; gap: .4rem; text-align: left; padding: .65rem; overflow-wrap: anywhere; }
-.card-open strong { padding-right: 2rem; }
-.thumbnail { aspect-ratio: 16 / 9; display: grid; place-items: center; background: #242637; border-radius: 8px; container-type: size; }
-.thumbnail span { width: auto; height: auto; max-height: 100cqh; max-width: 100cqw; min-width: min(100cqw, calc(100cqh * 0.5)); min-height: min(100cqh, calc(100cqw * 0.5)); }
-.thumbnail img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
-.actions { position: absolute; top: .9rem; right: .9rem; z-index: 1; }
-.actions summary { list-style: none; padding: 0 .5rem; }
-.actions div { position: absolute; right: 0; top: 100%; width: max-content; display: grid; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
-.actions button { border-color: transparent; text-align: left; }
+
 .muted { color: var(--muted); font-size: .875rem; }
 .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, 90vw); max-height: 92vh; overflow: auto; padding: 1.5rem; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 48px #0006; }
 fieldset { display: grid; gap: 1rem; margin-top: 1rem; }

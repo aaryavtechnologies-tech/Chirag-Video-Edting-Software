@@ -99,6 +99,6 @@ export function recentProject({ file, project }: OpenProject, thumbnail?: string
   const duration = projectDuration(project);
   const { width, height, background = '#000000' } = project.settings;
   return { file, name: project.name, editedAt: project.updatedAt ?? project.createdAt ?? '',
-    duration, width, height, background, thumbnail };
+    duration, width, height, background, thumbnail, fps: project.settings.fps };
 }
 

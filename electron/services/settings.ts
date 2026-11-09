@@ -12,7 +12,7 @@ export const preferencesSchema = z.object({
 
 const recentSchema = z.object({
   file: z.string(), name: z.string(), editedAt: z.string(), duration: z.number(),
-  width: z.number(), height: z.number(), background: z.string(),
+  width: z.number(), height: z.number(), background: z.string(), fps: z.union([z.literal(24), z.literal(25), z.literal(30), z.literal(50), z.literal(60)]).optional(),
   thumbnail: z.string().regex(/^[\da-f]{64}$/).optional(),
 });
 

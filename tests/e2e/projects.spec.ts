@@ -20,7 +20,7 @@ test('creates a 4K60 project and reopens it from Home', async ({}, testInfo) => 
     await page.getByRole('button', { name: s.newProject }).click();
     await page.getByLabel(s.name).fill('Sample');
     await chooseOption(page, s.resolution, '4K');
-    await chooseOption(page, s.frameRate, '60');
+    await page.getByRole('group', { name: s.frameRate }).getByRole('button', { name: '60', exact: true }).click();
     await page.getByRole('button', { name: s.create }).click();
     await expect(page.getByRole('heading', { name: 'Sample' })).toBeVisible();
     await page.keyboard.press('Control+k');

@@ -17,13 +17,13 @@ export function FolderField({ label, folder, onPick }: {
   </label>;
 }
 
-export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial }: {
+export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial, initialRatio }: {
   preferences: Preferences; onCreate(value: NewProject): void;
   onFolder(current: string, change: (folder: string) => void): void; busy: boolean;
-  initial?: ProjectSettings;
+  initial?: ProjectSettings; initialRatio?: keyof typeof ratios;
 }) {
   const [name, setName] = useState(s.defaultName);
-  const [ratio, setRatio] = useState<keyof typeof ratios | 'custom'>(initial ? 'custom' : '16:9');
+  const [ratio, setRatio] = useState<keyof typeof ratios | 'custom'>(initial ? 'custom' : initialRatio ?? '16:9');
   const [resolution, setResolution] = useState<keyof typeof resolutions>('1080p');
   const [width, setWidth] = useState(initial?.width ?? 1920);
   const [height, setHeight] = useState(initial?.height ?? 1080);
@@ -39,19 +39,22 @@ export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial 
     <fieldset disabled={busy}>
       {!initial && <label>{s.name}<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} /></label>}
       {!initial && <div className="ratio-cards" aria-label={s.aspect}>
-        {(['16:9', '9:16', '1:1', '4:5'] as const).map((value) => {
+        {(Object.keys(ratios) as (keyof typeof ratios)[]).map((value) => {
           const [x, y] = ratios[value];
           return <button type="button" key={value} aria-pressed={ratio === value} onClick={() => setRatio(value)}>
             <span aria-hidden="true" style={{ width: 32 * x / Math.max(x, y), height: 32 * y / Math.max(x, y) }} />
             {value}
           </button>;
         })}
+        <button type="button" aria-pressed={ratio === 'custom'} onClick={() => setRatio('custom')}>
+          <span aria-hidden="true" style={{ width: 28, height: 20, borderStyle: 'dashed' }} />{s.custom}
+        </button>
       </div>}
       <div className="grid grid-cols-2 gap-4">
-        <label>{s.aspect}<Select label={s.aspect} value={ratio} onChange={(e) => setRatio(e.target.value as typeof ratio)}>
+        {initial && <label>{s.aspect}<Select label={s.aspect} value={ratio} onChange={(e) => setRatio(e.target.value as typeof ratio)}>
           {Object.keys(ratios).map((value) => <option key={value}>{value}</option>)}
           <option value="custom">{s.custom}</option>
-        </Select></label>
+        </Select></label>}
         <label>{s.resolution}<Select label={s.resolution} value={resolution} disabled={ratio === 'custom'}
           onChange={(e) => setResolution(e.target.value as typeof resolution)}>
           {Object.keys(resolutions).map((value) => <option key={value}>{value}</option>)}
@@ -62,12 +65,13 @@ export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial 
           <label>{s.height}<input type="number" min={16} max={3840} step={2} required value={height || ''}
             onChange={(e) => setHeight(e.target.valueAsNumber)} /></label>
         </>}
-        <label>{s.frameRate}<Select label={s.frameRate} value={fps} onChange={(e) => setFps(frameRates[e.target.selectedIndex])}>
-          {frameRates.map((value) => <option key={value}>{value}</option>)}
-        </Select></label>
+        <div>{s.frameRate}<div className="ui-segmented" role="group" aria-label={s.frameRate}>
+          {frameRates.map((value) => <button type="button" key={value} aria-pressed={fps === value}
+            onClick={() => setFps(value)}>{value}</button>)}
+        </div></div>
         <label>{s.background}<input type="color" value={background} onChange={(e) => setBackground(e.target.value)} /></label>
       </div>
-      <p className="muted">{dimensions.width} × {dimensions.height}</p>
+      <p className="muted">{dimensions.width} × {dimensions.height} · {fps} fps</p>
       {!initial && <FolderField label={s.location} folder={folder} onPick={() => onFolder(folder, setFolder)} />}
       <button className="primary justify-self-end">{initial ? s.save : s.create}</button>
     </fieldset>
