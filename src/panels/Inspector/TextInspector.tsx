@@ -1,3 +1,4 @@
+import { Select } from '../../design-system/Select';
 import { useState, type ReactNode } from 'react';
 import { strings as s } from '../../lib/strings';
 import { builtInStyles } from '../../lib/textPresets';
@@ -233,9 +234,9 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
 function Choice<T extends keyof typeof s>({ label, value, values, change }: {
   label: string; value: T; values: readonly T[]; change(value: T): void;
 }) {
-  return <label>{label}<select value={value} onChange={(event) => change(values[event.target.selectedIndex])}>
+  return <label>{label}<Select label={label} value={value} onChange={(event) => change(values[event.target.selectedIndex])}>
     {values.map((item) => <option value={item} key={item}>{String(s[item])}</option>)}
-  </select></label>;
+  </Select></label>;
 }
 
 function Toggle({ label, checked, change }: { label: ReactNode; checked: boolean; change(value: boolean): void }) {

@@ -8,6 +8,7 @@ import './editorChrome.css';
 import '../layouts/layouts.css';
 import '../captions/captions.css';
 import './fonts.css';
+import '../design-system/base.css';
 
 document.title = strings.app;
 createRoot(document.getElementById('root')!).render(location.pathname === '/dev/gallery' ? <Gallery /> : <App />);

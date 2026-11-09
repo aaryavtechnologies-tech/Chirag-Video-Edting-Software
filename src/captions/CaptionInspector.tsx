@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useState } from 'react';
 import { strings as s } from '../lib/strings';
 import type { Project } from '../types/project';
@@ -76,15 +77,15 @@ export function CaptionInspector({ project, track, segment, edit }: {
         }} /></label>
       <label>{s.color}<input type="color" value={style.fill?.color?.match(/^#[\da-f]{6}$/i)?.[0] ?? '#ffffff'}
         onChange={(event) => update({ style: { ...(segment ? override?.style : style), fill: { type: 'solid', color: event.target.value } } })} /></label>
-      <label>{s.wordEffect}<select value={effect?.type ?? 'none'} onChange={(event) =>
+      <label>{s.wordEffect}<Select label={s.wordEffect} value={effect?.type ?? 'none'} onChange={(event) =>
         update({ wordEffect: { ...effect, type: wordEffects[event.target.selectedIndex] } })}>
         {wordEffects.map((item) => <option key={item} value={item}>{s.wordEffectNames[item]}</option>)}
-      </select></label>
+      </Select></label>
       <details><summary>{s.animation}</summary><AnimationInspector value={animation} change={(animation) => update({ animation })} /></details>
       <label>{s.presetName}<input value={name} onChange={(event) => setName(event.target.value)} /></label>
-      <label>{s.category}<select value={category} onChange={(event) => setCategory(captionCategories[event.target.selectedIndex])}>
+      <label>{s.category}<Select label={s.category} value={category} onChange={(event) => setCategory(captionCategories[event.target.selectedIndex])}>
         {captionCategories.map((item) => <option key={item}>{item}</option>)}
-      </select></label>
+      </Select></label>
       <button disabled={!name.trim()} onClick={() => edit((draft) => {
         (draft.captionTemplates ??= []).push({ ...template, id: crypto.randomUUID(), name: name.trim(), category,
           style, animation, wordEffect: effect });

@@ -23,9 +23,9 @@ const settingsSchema = z.object({
 export class Settings {
   private constructor(private file: string, private value: HomeState) {}
 
-  static async load(file: string, defaultFolder: string) {
+  static async load(file: string, defaultFolder: string, theme: Preferences['theme'] = 'dark') {
     const defaults: HomeState = {
-      preferences: { folder: defaultFolder, theme: 'dark', autosave: 30 }, recent: [],
+      preferences: { folder: defaultFolder, theme, autosave: 30 }, recent: [],
     };
     try {
       const result = settingsSchema.safeParse(JSON.parse(await readFile(file, 'utf8')));

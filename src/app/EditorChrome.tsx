@@ -63,7 +63,7 @@ export function CommandPalette({ actions, close }: { actions: Command[]; close()
 }
 
 export function EditorTooltips({ children }: { children: ReactNode }) {
-  return <Tooltip.Provider delayDuration={250}>{children}</Tooltip.Provider>;
+  return <Tooltip.Provider delayDuration={400}>{children}</Tooltip.Provider>;
 }
 
 export function LayoutMenu({ mode, change, dockOpen, inspectorOpen, guides, toggleDock, toggleInspector, toggleGuides }: {

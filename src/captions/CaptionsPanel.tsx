@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useMemo, useState } from 'react';
 import { strings as s } from '../lib/strings';
 import type { Project } from '../types/project';
@@ -69,9 +70,9 @@ export function CaptionsPanel({ project, edit, trackId, selected, playhead, sele
       <button onClick={addTrack}>{s.addCaptionTrack}</button>
       <button disabled={track?.locked} onClick={add}>{s.addCaption}</button>
     </div>
-    {project.captionTracks?.length ? <label>{s.tracks}<select value={track?.id ?? ''} onChange={(event) => select(undefined, event.target.value)}>
+    {project.captionTracks?.length ? <label>{s.tracks}<Select label={s.tracks} value={track?.id ?? ''} onChange={(event) => select(undefined, event.target.value)}>
       {project.captionTracks.map((item) => <option key={item.id} value={item.id}>{item.name ?? s.captions}</option>)}
-    </select></label> : null}
+    </Select></label> : null}
     <div className="inspector-tabs">
       <button aria-pressed={tab === 'templates'} onClick={() => setTab('templates')}>{s.templates}</button>
       <button aria-pressed={tab === 'transcript'} onClick={() => setTab('transcript')}>{s.transcript}</button>
@@ -79,9 +80,9 @@ export function CaptionsPanel({ project, edit, trackId, selected, playhead, sele
     </div>
     {tab === 'files' && <CaptionFiles project={project} track={track} edit={edit} select={select} />}
     {tab === 'templates' && <>
-      <label className="my-2">{s.category}<select value={category} onChange={(event) => setCategory(event.target.value)}>
+      <label className="my-2">{s.category}<Select label={s.category} value={category} onChange={(event) => setCategory(event.target.value)}>
         <option value="all">{s.all}</option>{captionCategories.map((item) => <option key={item}>{item}</option>)}
-      </select></label>
+      </Select></label>
       <div className="style-presets animation-grid">
         {library.filter((item) => category === 'all' || item.category === category).map((item) =>
           <TemplateCard key={item.id} template={item} pressed={item.id === templateId} select={() => setTemplateId(item.id)} />)}

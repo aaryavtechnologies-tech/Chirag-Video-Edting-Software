@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent } from 'react';
 import { strings as s } from '../lib/strings';
 import { alignFrame, timecode } from '../lib/time';
@@ -297,16 +298,16 @@ export function PreviewCanvas({ project, playback, edit, volume, setVolume, peak
       <button disabled={duration <= 0} onClick={toggle}>{playing ? s.pause : s.play}</button>
       <button onClick={() => step(1)} aria-label={s.nextFrame}>⏭</button>
       <button aria-pressed={loop} onClick={() => setLoop(!loop)}>{s.loop}</button>
-      <label>{s.zoom}<select value={viewZoom} onChange={(event) => setViewZoom(event.target.value)}>
+      <label>{s.zoom}<Select label={s.zoom} value={viewZoom} onChange={(event) => setViewZoom(event.target.value)}>
         <option value="fit">{s.fitTimeline}</option>
         {['50', '100', '200'].map((zoom) => <option key={zoom} value={zoom}>{zoom}%</option>)}
-      </select></label>
+      </Select></label>
       <button aria-pressed={grid} onClick={() => setGrid(!grid)}>{s.grid}</button>
       <button aria-pressed={rulers} onClick={() => setRulers(!rulers)}>{s.rulers}</button>
       <span className="muted">{timecode(playhead, fps)}</span>
-      <label>{s.quality}<select value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
+      <label>{s.quality}<Select label={s.quality} value={quality} onChange={(event) => setQuality(event.target.value as Quality)}>
         {(Object.keys(qualityDivisors) as Quality[]).map((key) => <option key={key} value={key}>{s[key]}</option>)}
-      </select></label>
+      </Select></label>
       <label>{s.masterVolume}<input type="range" min={0} max={1} step={0.01} value={volume}
         onChange={(event) => setVolume(event.target.valueAsNumber)} /></label>
       <meter aria-label={s.audioMeter} min={0} max={1} value={Math.min(1, peak)} />

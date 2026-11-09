@@ -1,4 +1,4 @@
-import { expect, test, _electron as electron } from '@playwright/test';
+import { expect, test, _electron as electron, type Page } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { readFile, mkdir, readdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -8,14 +8,19 @@ import { strings as s } from '../../src/lib/strings';
 import { createProject, saveProject } from '../../electron/services/projects';
 import { verifyExport } from '../../electron/services/export';
 
+async function chooseOption(page: Page, label: string, value: string) {
+  await page.getByRole('button', { name: label, exact: true }).click();
+  await page.getByRole('menuitemradio').and(page.locator(`[data-option-value="${value}"]`)).click();
+}
+
 test('creates a 4K60 project and reopens it from Home', async ({}, testInfo) => {
   const { app, projects } = await launch(testInfo.outputPath('workspace'));
   try {
     const page = await app.firstWindow();
     await page.getByRole('button', { name: s.newProject }).click();
     await page.getByLabel(s.name).fill('Sample');
-    await page.getByLabel(s.resolution).selectOption('4K');
-    await page.getByLabel(s.frameRate).selectOption('60');
+    await chooseOption(page, s.resolution, '4K');
+    await chooseOption(page, s.frameRate, '60');
     await page.getByRole('button', { name: s.create }).click();
     await expect(page.getByRole('heading', { name: 'Sample' })).toBeVisible();
     await page.keyboard.press('Control+k');
@@ -153,7 +158,7 @@ test('creates a caption track and edits a segment override', async ({}, testInfo
     await page.getByRole('button', { name: s.importCaptions, exact: true }).click();
     await expect(page.locator('.caption-clip')).toHaveCount(1);
     await page.locator('.caption-clip').click();
-    await page.getByLabel(s.wordEffect).selectOption('karaokeFill');
+    await chooseOption(page, s.wordEffect, 'karaokeFill');
     await page.getByRole('button', { name: s.save, exact: true }).click();
     await expect(page.getByRole('status')).toHaveText(s.saved);
     const file = join(projects, s.defaultName, s.defaultName + '.vedit');
@@ -257,7 +262,7 @@ test('plays three video layers at Half quality in track order', async ({}, testI
     }, opened.file);
     const page = await app.firstWindow();
     await page.getByRole('button', { name: s.openProject }).click();
-    await expect(page.getByLabel(s.quality)).toHaveValue('half');
+    await expect(page.getByLabel(s.quality)).toHaveAttribute('data-value', 'half');
     const preview = page.getByLabel(s.preview, { exact: true });
     await expect.poll(() => preview.evaluate((canvas: HTMLCanvasElement) => {
       const context = canvas.getContext('2d')!;
@@ -289,8 +294,8 @@ test('styles, previews and exports a title with zoom and shrink animation', asyn
     await page.getByLabel(s.inlineText).press('Control+Enter');
     await expect(page.locator('.clip-text')).toHaveText('Sunset');
     await page.getByRole('button', { name: s.animation, exact: true }).click();
-    await page.getByLabel(s.enter).selectOption('zoomIn');
-    await page.getByLabel(s.exit).selectOption('shrinkOut');
+    await chooseOption(page, s.enter, 'zoomIn');
+    await chooseOption(page, s.exit, 'shrinkOut');
     await page.getByRole('button', { name: s.position, exact: true }).click();
     await page.getByLabel(s.rotation).fill('12');
     await page.getByLabel(s.rotation).press('Enter');
@@ -377,7 +382,7 @@ test('matches animated caption preview and exported frames at three timestamps',
     }, { project: opened.file, output });
     const page = await app.firstWindow();
     await page.getByRole('button', { name: s.openProject }).click();
-    await page.getByLabel(s.quality).selectOption('full');
+    await chooseOption(page, s.quality, 'full');
     const preview = page.getByLabel(s.preview, { exact: true });
     const times = [0.4, 1, 1.7];
     const snapshots: string[] = [];
@@ -436,7 +441,7 @@ test('exports the layered sample project as 4K60 MP4 and MP3', async ({}, testIn
     await page.getByRole('button', { name: s.importMedia }).click();
     await expect(page.locator('.media-grid li')).toHaveCount(6);
     for (const filter of ['video', 'image', 'audio']) {
-      await page.getByLabel(s.filterMedia).selectOption(filter);
+      await chooseOption(page, s.filterMedia, filter);
       await expect(page.locator('.media-grid li')).toHaveCount(2);
     }
     await page.getByRole('button', { name: s.home, exact: true }).click();
@@ -447,7 +452,7 @@ test('exports the layered sample project as 4K60 MP4 and MP3', async ({}, testIn
     await expect(page.locator('.clip-audio')).toHaveCount(2);
     await page.getByRole('button', { name: s.export, exact: true }).click();
     await page.getByRole('button', { name: s.youtube4k }).click();
-    await page.getByLabel(s.exportMode).selectOption('both');
+    await chooseOption(page, s.exportMode, 'both');
     await page.getByRole('button', { name: s.chooseOutput }).click();
     await expect(page.getByText(s.exportDone)).toBeVisible({ timeout: 65_000 });
     await verifyExport(output, 3, { width: 3840, height: 2160, fps: 60, videoFormat: 'h264' });

@@ -6,12 +6,12 @@ export function IconButton({ label, shortcut, children, ...props }: ButtonHTMLAt
 }) {
   return <Tooltip.Root>
     <Tooltip.Trigger asChild>
-      <button {...props} type="button" className="tool-icon" aria-label={label} aria-keyshortcuts={shortcut}>
+      <button {...props} type="button" className={`tool-icon ${props.className ?? ''}`} aria-label={label} aria-keyshortcuts={shortcut}>
         {children}
       </button>
     </Tooltip.Trigger>
     <Tooltip.Portal>
-      <Tooltip.Content className="tool-tooltip" sideOffset={6}>
+      <Tooltip.Content className="tool-tooltip" sideOffset={8}>
         {label}{shortcut && <kbd>{shortcut}</kbd>}
       </Tooltip.Content>
     </Tooltip.Portal>

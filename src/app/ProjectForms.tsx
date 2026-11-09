@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useState } from 'react';
 import { projectDimensions, ratios, resolutions } from '../lib/geometry';
 import { frameRates } from '../lib/schema';
@@ -47,23 +48,23 @@ export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial 
         })}
       </div>}
       <div className="grid grid-cols-2 gap-4">
-        <label>{s.aspect}<select value={ratio} onChange={(e) => setRatio(e.target.value as typeof ratio)}>
+        <label>{s.aspect}<Select label={s.aspect} value={ratio} onChange={(e) => setRatio(e.target.value as typeof ratio)}>
           {Object.keys(ratios).map((value) => <option key={value}>{value}</option>)}
           <option value="custom">{s.custom}</option>
-        </select></label>
-        <label>{s.resolution}<select value={resolution} disabled={ratio === 'custom'}
+        </Select></label>
+        <label>{s.resolution}<Select label={s.resolution} value={resolution} disabled={ratio === 'custom'}
           onChange={(e) => setResolution(e.target.value as typeof resolution)}>
           {Object.keys(resolutions).map((value) => <option key={value}>{value}</option>)}
-        </select></label>
+        </Select></label>
         {ratio === 'custom' && <>
           <label>{s.width}<input type="number" min={16} max={3840} step={2} required value={width || ''}
             onChange={(e) => setWidth(e.target.valueAsNumber)} /></label>
           <label>{s.height}<input type="number" min={16} max={3840} step={2} required value={height || ''}
             onChange={(e) => setHeight(e.target.valueAsNumber)} /></label>
         </>}
-        <label>{s.frameRate}<select value={fps} onChange={(e) => setFps(frameRates[e.target.selectedIndex])}>
+        <label>{s.frameRate}<Select label={s.frameRate} value={fps} onChange={(e) => setFps(frameRates[e.target.selectedIndex])}>
           {frameRates.map((value) => <option key={value}>{value}</option>)}
-        </select></label>
+        </Select></label>
         <label>{s.background}<input type="color" value={background} onChange={(e) => setBackground(e.target.value)} /></label>
       </div>
       <p className="muted">{dimensions.width} × {dimensions.height}</p>
@@ -98,10 +99,10 @@ export function PreferencesForm({ preferences, onSave, onFolder, busy }: {
     <fieldset disabled={busy}>
       <FolderField label={s.defaultFolder} folder={value.folder}
         onPick={() => onFolder(value.folder, (folder) => setValue({ ...value, folder }))} />
-      <label>{s.theme}<select value={value.theme}
+      <label>{s.theme}<Select label={s.theme} value={value.theme}
         onChange={(e) => setValue({ ...value, theme: e.target.value === 'light' ? 'light' : 'dark' })}>
         <option value="dark">{s.dark}</option><option value="light">{s.light}</option>
-      </select></label>
+      </Select></label>
       <label>{s.autosave}<input type="number" min={5} max={3600} required value={value.autosave || ''}
         onChange={(e) => setValue({ ...value, autosave: e.target.valueAsNumber })} /></label>
       <button className="primary justify-self-end">{s.save}</button>

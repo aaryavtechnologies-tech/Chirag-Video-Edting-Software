@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useEffect, useState } from 'react';
 import { Modal } from '../app/Modal';
 import { strings as s } from '../lib/strings';
@@ -124,26 +125,26 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
           {(Object.keys(exportPresets) as (keyof typeof exportPresets)[]).map((key) =>
             <button type="button" key={key} onClick={() => applyPreset(key)}>{s[key]}</button>)}
         </div>
-        <label>{s.exportMode}<select value={value.mode} onChange={(event) => update({ mode: event.target.value as ExportSettings['mode'] })}>
+        <label>{s.exportMode}<Select label={s.exportMode} value={value.mode} onChange={(event) => update({ mode: event.target.value as ExportSettings['mode'] })}>
           <option value="video">{s.videoAndAudio}</option><option value="audio">{s.audioOnly}</option>
           <option value="both">{s.both}</option>
-        </select></label>
+        </Select></label>
         {value.mode !== 'audio' && <>
           <div className="grid grid-cols-2 gap-3">
-            <label>{s.videoFormat}<select value={value.videoFormat}
+            <label>{s.videoFormat}<Select label={s.videoFormat} value={value.videoFormat}
               onChange={(event) => update({ videoFormat: event.target.value as ExportSettings['videoFormat'] })}>
               {Object.entries(videoFormats).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-            </select></label>
-            <label>{s.resolution}<select value={resolution} onChange={(event) => setSize(event.target.value)}>
+            </Select></label>
+            <label>{s.resolution}<Select label={s.resolution} value={resolution} onChange={(event) => setSize(event.target.value)}>
               <option value="project">{s.projectResolution}</option>
               {resolution === 'preset' && <option value="preset">{s.presetResolution}</option>}
               {Object.keys(exportSizes).map((size) => <option key={size}>{size}</option>)}
-            </select></label>
-            <label>{s.frameRate}<select value={value.fps}
+            </Select></label>
+            <label>{s.frameRate}<Select label={s.frameRate} value={value.fps}
               onChange={(event) => updateVideo(value.width, value.height, frameRates[event.target.selectedIndex])}>
               {frameRates.map((rate) => <option key={rate}>{rate}</option>)}
-            </select></label>
-            <label>{s.exportQuality}<select value={quality} onChange={(event) => {
+            </Select></label>
+            <label>{s.exportQuality}<Select label={s.exportQuality} value={quality} onChange={(event) => {
               const next = event.target.value as keyof typeof qualityFactors;
               setQuality(next);
               if (next !== 'customBitrate') update({
@@ -152,7 +153,7 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
             }}>
               {(Object.keys(qualityFactors) as (keyof typeof qualityFactors)[]).map((key) =>
                 <option key={key} value={key}>{s[key]}</option>)}
-            </select></label>
+            </Select></label>
             <label>{s.bitrate}<input type="number" min={0.1} max={500} step={0.1} required
               value={Number.isFinite(value.bitrate) ? value.bitrate : ''}
               onChange={(event) => { setQuality('customBitrate'); update({ bitrate: event.target.valueAsNumber }); }} /></label>
@@ -164,36 +165,36 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
             <p className="muted">{s.compatibility4k}</p>}
         </>}
         {value.mode !== 'video' && <div className="grid grid-cols-2 gap-3">
-          <label>{s.audioFormat}<select value={value.audioFormat}
+          <label>{s.audioFormat}<Select label={s.audioFormat} value={value.audioFormat}
             onChange={(event) => update({ audioFormat: event.target.value as ExportSettings['audioFormat'] })}>
             {Object.entries(audioFormats).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-          </select></label>
-          {value.audioFormat !== 'wav' && <label>{s.audioBitrate}<select value={value.audioBitrate}
+          </Select></label>
+          {value.audioFormat !== 'wav' && <label>{s.audioBitrate}<Select label={s.audioBitrate} value={value.audioBitrate}
             onChange={(event) => update({ audioBitrate: event.target.value === '192' ? 192 : 320 })}>
             <option>192</option><option>320</option>
-          </select></label>}
+          </Select></label>}
         </div>}
-        <label>{s.range}<select value={value.range ? 'markers' : 'all'}
+        <label>{s.range}<Select label={s.range} value={value.range ? 'markers' : 'all'}
           onChange={(event) => update({ range: event.target.value === 'markers'
             ? { start: markers[0], end: markers.at(-1)! } : undefined })}>
           <option value="all">{s.wholeProject}</option>
           <option value="markers" disabled={markers.length < 3}>{s.markerRange}</option>
-        </select></label>
+        </Select></label>
         {value.range && <div className="grid grid-cols-2 gap-3">
-          <label>{s.rangeStart}<select value={value.range.start} onChange={(event) =>
+          <label>{s.rangeStart}<Select label={s.rangeStart} value={value.range.start} onChange={(event) =>
             update({ range: { start: Number(event.target.value), end: value.range!.end } })}>
             {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
-          </select></label>
-          <label>{s.rangeEnd}<select value={value.range.end} onChange={(event) =>
+          </Select></label>
+          <label>{s.rangeEnd}<Select label={s.rangeEnd} value={value.range.end} onChange={(event) =>
             update({ range: { start: value.range!.start, end: Number(event.target.value) } })}>
             {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
-          </select></label>
+          </Select></label>
         </div>}
         {value.mode !== 'audio' && project.captionTracks?.some((track) => !track.hidden && track.segments.length) &&
-          <label>{s.captions}<select value={value.burnCaptions === false ? 'sidecar' : 'burn'}
+          <label>{s.captions}<Select label={s.captions} value={value.burnCaptions === false ? 'sidecar' : 'burn'}
             onChange={(event) => update({ burnCaptions: event.target.value === 'burn' })}>
             <option value="burn">{s.burnCaptions}</option><option value="sidecar">{s.captionSidecar}</option>
-          </select></label>}
+          </Select></label>}
         <label className="toggle-field"><input type="checkbox" checked={value.openFolder}
           onChange={(event) => update({ openFolder: event.target.checked })} />{s.openFolderAfter}</label>
         <p className="muted">{s.estimatedSize} {Math.ceil(estimate / 1_000_000)} {s.megabytes}</p>

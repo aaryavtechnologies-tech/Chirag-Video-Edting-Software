@@ -1,3 +1,4 @@
+import { Select } from '../../design-system/Select';
 import { useState } from 'react';
 import type { Clip, Project, Track } from '../../types/project';
 import { strings as s } from '../../lib/strings';
@@ -41,13 +42,13 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
     </fieldset>}
     {clip && visual && <fieldset disabled={track?.locked}>
       <legend>{s.video}</legend>
-      <label>{s.fit}<select value={clip.fit ?? 'contain'} onChange={(event) => {
+      <label>{s.fit}<Select label={s.fit} value={clip.fit ?? 'contain'} onChange={(event) => {
         const fit = event.target.value === 'cover' ? 'cover' : 'contain';
         edit((draft) => {
           const target = findClip(draft, clip.id);
           if (target && !target.track.locked) target.clip.fit = fit;
         });
-      }}><option value="contain">{s.contain}</option><option value="cover">{s.cover}</option></select></label>
+      }}><option value="contain">{s.contain}</option><option value="cover">{s.cover}</option></Select></label>
       <NumberControl label={s.opacity} value={clip.transform?.opacity ?? 1} min={0} max={1} step={0.05}
         change={(opacity) => edit((draft) => {
           const target = findClip(draft, clip.id);
@@ -67,10 +68,10 @@ export function AudioInspector({ project, clipId, trackId, edit }: Props) {
             value={clip.visual?.crop?.[key] ?? (key === 'x' || key === 'y' ? 0 : 1)}
             change={(value) => updateVisual({ crop: { ...clip.visual?.crop, [key]: value } })} />)}
       </details>
-      <label>{s.visualMotion}<select value={clip.visual?.motion ?? 'none'} onChange={(event) =>
+      <label>{s.visualMotion}<Select label={s.visualMotion} value={clip.visual?.motion ?? 'none'} onChange={(event) =>
         updateVisual({ motion: event.target.value as NonNullable<Clip['visual']>['motion'] })}>
         {(['none', 'slide', 'zoom', 'spin', 'wipe'] as const).map((name) => <option key={name} value={name}>{s[name]}</option>)}
-      </select></label>
+      </Select></label>
       <details><summary>{s.adjust}</summary>
         {([
           ['brightness', 0, -1, 1], ['contrast', 1, 0, 2], ['saturation', 1, 0, 3],

@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useState } from 'react';
 import { strings as s } from '../lib/strings';
 import type { MediaProgress } from '../types/desktop';
@@ -27,9 +28,9 @@ export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
       <button disabled={busy} className="primary" onClick={() => importFiles()}>{s.importMedia}</button>
     </header>
     {!audioOnly && <label>{s.filterMedia}
-      <select value={filter} onChange={(event) => setFilter(filters[event.target.selectedIndex])}>
+      <Select label={s.filterMedia} value={filter} onChange={(event) => setFilter(filters[event.target.selectedIndex])}>
         {filters.map((kind) => <option key={kind} value={kind}>{s[kind]}</option>)}
-      </select>
+      </Select>
     </label>}
     {!shown.length && <p className="muted mt-3">{assets.length ? s.noMediaMatches : s.mediaEmpty}</p>}
     <ul className="media-grid">

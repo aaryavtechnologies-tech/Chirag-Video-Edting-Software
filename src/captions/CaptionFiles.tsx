@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { useMemo, useState } from 'react';
 import { strings as s } from '../lib/strings';
 import type { Project } from '../types/project';
@@ -84,25 +85,25 @@ export function CaptionFiles({ project, track, edit, select }: {
     <label>{s.captionPaste}<textarea rows={3} value={text} onChange={(event) => { setText(event.target.value); setFormat('txt'); }} /></label>
     {format === 'txt' && <label>{s.wordsPerSecond}<input type="number" min="0.1" max="20" step="0.1"
       value={rate} onChange={(event) => setRate(Number(event.target.value))} /></label>}
-    <label>{s.targetTrack}<select value={target} onChange={(event) => setTarget(event.target.value)}>
+    <label>{s.targetTrack}<Select label={s.targetTrack} value={target} onChange={(event) => setTarget(event.target.value)}>
       <option value="">{s.addCaptionTrack}</option>
       {(project.captionTracks ?? []).map((item) => <option key={item.id} value={item.id} disabled={item.locked}>{item.name}</option>)}
-    </select></label>
+    </Select></label>
     <label>{s.importOffset}<input type="number" value={offset} step="0.05" onChange={(event) => setOffset(Number(event.target.value))} /></label>
     <label>{s.sourceFps}<input type="number" value={sourceFps} min="0" max="240" step="0.001"
       onChange={(event) => setSourceFps(Number(event.target.value))} /></label>
-    <label>{s.captionTemplate}<select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+    <label>{s.captionTemplate}<Select label={s.captionTemplate} value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
       <option value="">{s.trackDefault}</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select></label>
+    </Select></label>
     <label className="toggle-field"><input type="checkbox" checked={split} onChange={(event) => setSplit(event.target.checked)} />{s.splitLongCaptions}</label>
     {parsed.segments.length > 0 && <ol className="caption-preview">{parsed.segments.slice(0, 10).map((item) => <li key={item.id}>
       <time>{item.start.toFixed(2)} {s.seconds}</time> {item.text}
     </li>)}</ol>}
     {(failed || parsed.invalid || (text.trim() && !parsed.segments.length)) && <p className="error" role="alert">{s.invalidCaptions}</p>}
     <button className="primary" disabled={!parsed.segments.length} onClick={commit}>{s.importCaptions}</button>
-    <label>{s.captionExportFormat}<select value={outFormat} onChange={(event) => setOutFormat(captionExportFormats[event.target.selectedIndex])}>
+    <label>{s.captionExportFormat}<Select label={s.captionExportFormat} value={outFormat} onChange={(event) => setOutFormat(captionExportFormats[event.target.selectedIndex])}>
       {captionExportFormats.map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}
-    </select></label>
+    </Select></label>
     <button disabled={!project.captionTracks?.some((item) => item.segments.length)} onClick={download}>{s.exportCaptions}</button>
   </div>;
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, shell } from 'electron';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -374,7 +374,7 @@ void app.whenReady().then(async () => {
   const data = app.getPath('userData');
   await mkdir(data, { recursive: true });
   const defaultFolder = join(app.getPath('documents'), 'VideoEditorProjects');
-  const settings = await Settings.load(join(data, 'settings.json'), defaultFolder);
+  const settings = await Settings.load(join(data, 'settings.json'), defaultFolder, nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
   registerHandlers(settings);
   protocol.handle('editor-media', async (request) => {
     const { pathname, hostname } = new URL(request.url);

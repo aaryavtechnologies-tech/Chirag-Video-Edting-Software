@@ -1,3 +1,4 @@
+import { Select } from '../design-system/Select';
 import { strings as s } from '../lib/strings';
 import type { TextStyle } from '../types/project';
 
@@ -46,15 +47,15 @@ export function TextLayerControls({ style, set }: { style: TextStyle; set(value:
           const gradient = fill.gradient ?? {};
           const stops = gradient.stops ?? [{ offset: 0, color: gradient.from ?? '#ffffff' }, { offset: 1, color: gradient.to ?? '#8b7bff' }];
           return <>
-            <label>{s.fillType}<select value={fill.type ?? 'solid'}
+            <label>{s.fillType}<Select label={s.fillType} value={fill.type ?? 'solid'}
               onChange={(event) => update(key, index, { type: event.target.value })}>
               <option value="solid">{s.solid}</option><option value="gradient">{s.gradient}</option>
-            </select></label>
+            </Select></label>
             {fill.type === 'gradient' && <>
-              <label>{s.gradientKind}<select value={gradient.kind ?? 'linear'}
+              <label>{s.gradientKind}<Select label={s.gradientKind} value={gradient.kind ?? 'linear'}
                 onChange={(event) => update(key, index, { gradient: { ...gradient, kind: event.target.value } })}>
                 <option value="linear">{s.linear}</option><option value="radial">{s.radial}</option>
-              </select></label>
+              </Select></label>
               {stops.map((stop, stopIndex) => <div className="grid grid-cols-2 gap-1" key={stopIndex}>
                 <ColorInput label={s.gradientStop + ' ' + (stopIndex + 1)} value={stop.color}
                   change={(color) => update(key, index, { gradient: { ...gradient,
@@ -76,10 +77,10 @@ export function TextLayerControls({ style, set }: { style: TextStyle; set(value:
         {key === 'strokes' && <>
           <NumberInput label={s.width} value={groups.strokes[index].width ?? 3} min={0} max={100}
             change={(width) => update(key, index, { width })} />
-          <label>{s.alignment}<select value={groups.strokes[index].alignment ?? 'center'}
+          <label>{s.alignment}<Select label={s.alignment} value={groups.strokes[index].alignment ?? 'center'}
             onChange={(event) => update(key, index, { alignment: event.target.value })}>
             <option value="outside">{s.outside}</option><option value="center">{s.center}</option><option value="inside">{s.inside}</option>
-          </select></label>
+          </Select></label>
         </>}
         {key === 'shadows' && <>
           {([
