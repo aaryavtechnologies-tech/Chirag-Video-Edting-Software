@@ -1,3 +1,6 @@
+import { Eye, EyeOff, Film, Flag, GripVertical, Image, Lock, LockOpen, Magnet, Maximize, MousePointer2, Music, Scissors, Trash2, Type, Volume2, VolumeX, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { IconButton } from '../design-system/IconButton';
+import { TimelineNavigator } from './TimelineNavigator';
 import { Fragment, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { CaptionTimelineRow } from '../captions/CaptionTimelineRow';
 import { strings as s } from '../lib/strings';
@@ -14,7 +17,7 @@ import './timeline.css';
 
 export const assetDragType = 'application/x-video-editor-asset';
 const trackDragType = 'application/x-video-editor-track';
-const labelsWidth = 152;
+const labelsWidth = 160;
 const minZoom = 12;
 const maxZoom = 480;
 const id = () => crypto.randomUUID();
@@ -39,6 +42,7 @@ interface Props {
 }
 
 export function Timeline({ project, edit, playhead, seek, busy, onSelect, focusedClip, onZoom, selectedCaptions, onCaptionSelect }: Props) {
+  const [renaming, setRenaming] = useState<string>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(80);
   useEffect(() => { onZoom?.(Math.round(zoom / 80 * 100)); }, [zoom, onZoom]);
@@ -47,6 +51,8 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   const [viewport, setViewport] = useState({ width: 800, left: 0 });
   const [message, setMessage] = useState('');
   const [menu, setMenu] = useState<{ id: string; x: number; y: number }>();
+  const panDrag = useRef<{ x: number; y: number; left: number; top: number }>();
+  const spacePan = useRef(false);
   const pane = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const clipboard = useRef<ClipboardClip[]>([]);
@@ -77,7 +83,13 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
     const element = pane.current;
     if (!element) return;
     const wheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
+      if (!event.ctrlKey && !event.metaKey) {
+        if (event.shiftKey && !event.deltaX) {
+          event.preventDefault();
+          element.scrollLeft += event.deltaY;
+        }
+        return;
+      }
       event.preventDefault();
       const at = Math.max(0, event.clientX - element.getBoundingClientRect().left - labelsWidth);
       changeZoom(zoom * Math.exp(-event.deltaY / 400), at);
@@ -110,6 +122,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
         return;
       }
       switch (event.key.toLowerCase()) {
+        case 'escape': case 'v': setSelected(new Set()); onSelect(); setMenu(undefined); break;
         case 's': split(); break;
         case 'delete': case 'backspace': erase(event.shiftKey); break;
         case 'n': setSnap((value) => !value); break;
@@ -272,27 +285,64 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   const firstTick = Math.floor(visibleStart / step);
   const lastTick = Math.ceil(Math.min(visibleEnd, width / zoom) / step);
   const ticks = Array.from({ length: lastTick - firstTick + 1 }, (_, index) => (firstTick + index) * step);
+  const navigatorSpan = Math.max(1, viewport.width - labelsWidth) / zoom;
+  const navigatorDuration = width / zoom;
+  const panTo = (time: number) => { if (pane.current) pane.current.scrollLeft = Math.max(0, time * zoom); };
   const dragDelta = gesture && 'clip' in gesture ? gestureDelta(gesture, gesture.point.x) : 0;
 
   return <section className="timeline" aria-label={s.timeline} onPointerDown={() => { if (menu) setMenu(undefined); }}>
     <div className="timeline-tools">
-      <button disabled={busy} onClick={split}>{s.split}</button>
-      <button disabled={busy || !selected.size} onClick={() => erase(false)}>{s.delete}</button>
-      <button disabled={busy || !selected.size} onClick={() => erase(true)}>{s.rippleDelete}</button>
-      <button aria-pressed={snap} onClick={() => setSnap(!snap)}>{s.snap}</button>
-      <button disabled={busy} onClick={mark}>{s.marker}</button>
-      <button disabled={busy} onClick={() => edit((draft) => { addTrack(draft, 'video', id()); })}>{s.addVideo}</button>
-      <button disabled={busy} onClick={() => edit((draft) => { addTrack(draft, 'audio', id()); })}>{s.addAudio}</button>
-      <label className="timeline-zoom">{s.zoom}<input type="range" min={minZoom} max={maxZoom} value={zoom}
+      <IconButton label={s.selectTool} shortcut="V" onClick={() => { setSelected(new Set()); onSelect(); }}><MousePointer2 size={16} /></IconButton>
+      <IconButton label={s.split} shortcut="S" disabled={busy} onClick={split}><Scissors size={16} /></IconButton>
+      <IconButton label={s.delete} shortcut="Delete" disabled={busy || !selected.size} onClick={() => erase(false)}><Trash2 size={16} /></IconButton>
+      <IconButton label={s.rippleDelete} shortcut="Shift+Delete" disabled={busy || !selected.size} onClick={() => erase(true)}>
+        <Trash2 size={16} /><span className="ripple-icon" aria-hidden="true">›</span>
+      </IconButton>
+      <span className="toolbar-divider" />
+      <IconButton label={s.snap} shortcut="N" aria-pressed={snap} onClick={() => setSnap(!snap)}><Magnet size={16} /></IconButton>
+      <IconButton label={s.marker} shortcut="M" disabled={busy} onClick={mark}><Flag size={16} /></IconButton>
+      <span className="toolbar-divider" />
+      <IconButton label={s.addVideo} disabled={busy} onClick={() => edit((draft) => { addTrack(draft, 'video', id()); })}><Film size={16} /></IconButton>
+      <IconButton label={s.addAudio} disabled={busy} onClick={() => edit((draft) => { addTrack(draft, 'audio', id()); })}><Music size={16} /></IconButton>
+      <span className="timeline-time">{timecode(playhead, fps)}</span>
+      <IconButton label={s.zoomOut} onClick={() => changeZoom(zoom / 1.25)}><ZoomOut size={16} /></IconButton>
+      <label className="timeline-zoom"><input type="range" aria-label={s.zoom} min={minZoom} max={maxZoom} value={zoom}
         onChange={(event) => changeZoom(event.target.valueAsNumber)} /></label>
-      <button onClick={() => {
+      <IconButton label={s.zoomIn} onClick={() => changeZoom(zoom * 1.25)}><ZoomIn size={16} /></IconButton>
+      <IconButton label={s.fitTimeline} onClick={() => {
         setZoom(Math.max(minZoom, Math.min(maxZoom, (viewport.width - labelsWidth) / Math.max(1, length))));
         if (pane.current) pane.current.scrollLeft = 0;
-      }}>{s.fitTimeline}</button>
-      <span className="timeline-time">{timecode(playhead, fps)}</span>
+      }}><Maximize size={16} /></IconButton>
       {message && <span className="muted" role="status">{message}</span>}
     </div>
-    <div className="timeline-scroll" ref={pane}
+    <TimelineNavigator tracks={tracks} duration={navigatorDuration} start={viewport.left / zoom}
+      span={navigatorSpan} pan={panTo} resize={(start, span) => {
+        const next = Math.max(minZoom, Math.min(maxZoom, (viewport.width - labelsWidth) / span));
+        setZoom(next);
+        requestAnimationFrame(() => { if (pane.current) pane.current.scrollLeft = start * next; });
+      }} />
+    <div className="timeline-scroll" ref={pane} tabIndex={0}
+      onBlur={() => { spacePan.current = false; }}
+      onKeyDown={(event) => {
+        if (event.code !== 'Space' || event.target !== event.currentTarget) return;
+        spacePan.current = true;
+        event.preventDefault();
+      }}
+      onKeyUp={(event) => { if (event.code === 'Space') spacePan.current = false; }}
+      onPointerDownCapture={(event) => {
+        if (event.button !== 1 && !(event.button === 0 && spacePan.current)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const element = event.currentTarget;
+        panDrag.current = { x: event.clientX, y: event.clientY, left: element.scrollLeft, top: element.scrollTop };
+        element.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!panDrag.current) return;
+        event.currentTarget.scrollLeft = panDrag.current.left + panDrag.current.x - event.clientX;
+        event.currentTarget.scrollTop = panDrag.current.top + panDrag.current.y - event.clientY;
+      }}
+      onLostPointerCapture={(event) => { if (event.target === event.currentTarget) panDrag.current = undefined; }}
       onScroll={(event) => setViewport({ width: event.currentTarget.clientWidth, left: event.currentTarget.scrollLeft })}>
       <div ref={surface} className="timeline-surface" style={{ width: width + labelsWidth }}
         onPointerMove={(event) => {
@@ -303,7 +353,8 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
         }} onPointerUp={finish} onPointerCancel={() => setGesture(undefined)}>
         <div className="timeline-row ruler">
           <div className="track-label">{s.tracks}</div>
-          <div className="track-lane" onPointerDown={(event) => {
+          <div className="track-lane" style={{ '--minor-tick': `${step * zoom / 5}px` } as React.CSSProperties}
+            onPointerDown={(event) => {
             if (event.button !== 0) return;
             capture(event);
             setGesture({ kind: 'scrub' });
@@ -318,28 +369,50 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
         </div>
         {tracks.map((track, index) => <Fragment key={track.id}>
         {index === firstAudio && captionRows}
-        <div className="timeline-row" data-track-id={track.id}>
+        <div className="timeline-row" data-track-id={track.id} data-track-kind={track.kind}>
           <div className="track-label">
-            <span draggable={!busy} onDragStart={(event) => event.dataTransfer.setData(trackDragType, track.id)}
+            <GripVertical className="track-grip" size={12} aria-hidden="true" />
+            <i className="track-dot" />
+            {renaming === track.id ? <input aria-label={s.name} defaultValue={track.name} autoFocus maxLength={120}
+              onFocus={(event) => event.currentTarget.select()} onBlur={(event) => {
+                const name = event.currentTarget.value.trim();
+                if (name && name !== track.name) edit((draft) => {
+                  const found = draft.tracks.find((entry) => entry.id === track.id);
+                  if (found) found.name = name;
+                });
+                setRenaming(undefined);
+              }} onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+                if (event.key === 'Escape') {
+                  event.currentTarget.value = track.name;
+                  event.currentTarget.blur();
+                }
+              }} /> : <span draggable={!busy} onDragStart={(event) => event.dataTransfer.setData(trackDragType, track.id)}
+              onDoubleClick={() => { if (!busy) setRenaming(track.id); }}
               onClick={() => { setSelected(new Set()); onSelect(undefined, track.id); }}
               onDragOver={(event) => { if (event.dataTransfer.types.includes(trackDragType)) event.preventDefault(); }}
               onDrop={(event) => {
                 event.preventDefault();
                 const from = event.dataTransfer.getData(trackDragType);
                 if (from && !busy) attempt((draft) => reorderTrack(draft, from, track.id));
-              }}>{track.name}</span>
+              }} title={track.name}>{track.name}</span>}
             <button disabled={busy} aria-label={s.lockTrack} title={s.lockTrack} aria-pressed={!!track.locked}
               onClick={() => edit((draft) => {
                 const found = draft.tracks.find((entry) => entry.id === track.id);
                 if (found) found.locked = !found.locked;
-              })}>⌑</button>
+              })}>{track.locked ? <Lock size={13} /> : <LockOpen size={13} />}</button>
             {track.kind === 'video' && <button disabled={busy} aria-label={s.hideTrack} title={s.hideTrack}
               aria-pressed={!!track.hidden} onClick={() => edit((draft) => {
                 const found = draft.tracks.find((entry) => entry.id === track.id);
                 if (found) found.hidden = !found.hidden;
-              })}>◉</button>}
+              })}>{track.hidden ? <EyeOff size={13} /> : <Eye size={13} />}</button>}
+            {track.kind === 'audio' && <IconButton disabled={busy} label={s.muteTrack}
+              aria-pressed={!!track.muted} onClick={() => edit((draft) => {
+                const found = draft.tracks.find((entry) => entry.id === track.id);
+                if (found) found.muted = !found.muted;
+              })}>{track.muted ? <VolumeX size={13} /> : <Volume2 size={13} />}</IconButton>}
             <button disabled={busy || track.locked} aria-label={s.removeTrack} title={s.removeTrack}
-              onClick={() => attempt((draft) => removeTrack(draft, track.id))}>×</button>
+              onClick={() => attempt((draft) => removeTrack(draft, track.id))}><X size={13} /></button>
           </div>
           <div className="track-lane" onPointerDown={(event) => {
             if (event.button !== 0 || busy) return;
@@ -365,7 +438,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
           <div className="track-label" />
           <div className="track-lane add-lane muted"
             onDragOver={(event) => { if (event.dataTransfer.types.includes(assetDragType)) event.preventDefault(); }}
-            onDrop={(event) => dropAsset(event)}>{s.dropTrack}</div>
+            onDrop={(event) => dropAsset(event)}>{length ? s.dropTrack : s.timelineEmpty}</div>
         </div>
         <div className="timeline-playhead" style={{ left: labelsWidth + playhead * zoom }} />
         {gesture?.kind === 'box' && <div className="selection-box" style={{
@@ -392,12 +465,13 @@ function ClipBlock({ clip, asset, zoom, active, delta, gesture, start, context }
   const name = clip.text ?? asset?.path.split(/[\\/]/).at(-1) ?? s[clip.type];
   const left = (clip.start + (gesture === 'right' ? 0 : delta)) * zoom;
   const width = (clip.duration + (gesture === 'right' ? delta : gesture === 'left' ? -delta : 0)) * zoom;
+  const Icon = { audio: Music, image: Image, text: Type, video: Film }[clip.type];
   const tile = asset?.thumbPath && `url("editor-media://thumbnail/${encodeURIComponent(asset.id)}")`;
   return <div role="button" tabIndex={0} aria-label={name} aria-pressed={active} data-clip-id={clip.id}
     className={`timeline-clip clip-${clip.type}${active ? ' selected' : ''}`}
     style={{ left, width: Math.max(3, width), backgroundImage: tile || undefined }}
     onPointerDown={(event) => start(event, 'move')} onContextMenu={context}>
-    <span>{name}</span>
+    <span title={name}><Icon size={12} aria-hidden="true" />{name}</span>
     {asset?.waveformPath && (clip.type === 'audio' || (clip.type === 'video' && !clip.muted)) &&
       <Waveform asset={asset} clip={clip} />}
     <i className="trim left" onPointerDown={(event) => start(event, 'left')} />

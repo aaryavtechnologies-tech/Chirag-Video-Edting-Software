@@ -1,6 +1,8 @@
 export const strings = {
   applicationMenu: 'Application menu', fileMenu: 'File', editMenu: 'Edit', helpMenu: 'Help',
   openRecent: 'Open recent', exitApp: 'Exit', cut: 'Cut', selectAll: 'Select all', zoomOut: 'Zoom out',
+  timelineEmpty: 'Drag media here to start editing',
+  selectTool: 'Select', timelineNavigator: 'Timeline navigator',
   previewZoom: 'Preview zoom', fitPreview: 'Fit', fullscreenPreview: 'Full screen preview',
   searchMedia: 'Search media',
   fullscreen: 'Full screen', resetPanelSizes: 'Reset panel sizes', about: 'About Video Editor',
