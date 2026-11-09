@@ -14,6 +14,7 @@ export type MediaProgress = {
   projectId: string; assetId: string; percent: number; proxyPath?: string; failed?: boolean;
 };
 export type ImportResult = { assets: Asset[]; failures: string[]; proxies: string[] };
+export type WindowAction = 'minimize' | 'maximize' | 'fullscreen' | 'close';
 
 export const channels = {
   home: 'settings:read', preferences: 'settings:save', folder: 'dialog:folder',
@@ -25,9 +26,11 @@ export const channels = {
   stageTextFrames: 'export:text-frames',
   stage: 'projects:stage', saveAs: 'projects:save-as', discardRecovery: 'projects:discard-recovery',
   missing: 'media:missing', relink: 'media:relink',
+  windowControl: 'window:control',
 } as const;
 export const mediaProgressChannel = 'media:progress';
 export const exportProgressChannel = 'export:progress';
+export const windowMaximizedChannel = 'window:maximized';
 
 export interface DesktopApi {
   home(): Promise<HomeState>;
@@ -54,6 +57,8 @@ export interface DesktopApi {
   discardRecovery(file: string): Promise<void>;
   missing(projectId: string): Promise<Asset[]>;
   relink(projectId: string, assetId: string): Promise<OpenProject | undefined>;
+  windowControl(action: WindowAction): Promise<boolean>;
+  onWindowMaximized(listener: (maximized: boolean) => void): () => void;
 }
 
 declare global {

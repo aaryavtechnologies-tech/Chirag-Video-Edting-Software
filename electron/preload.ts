@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
-import { channels, exportProgressChannel, mediaProgressChannel, type DesktopApi, type MediaProgress } from '../src/types/desktop';
+import { channels, exportProgressChannel, mediaProgressChannel, windowMaximizedChannel, type DesktopApi, type MediaProgress } from '../src/types/desktop';
 import type { ExportProgress } from '../src/types/export';
 
 const api: DesktopApi = {
@@ -30,6 +30,12 @@ const api: DesktopApi = {
   discardRecovery: (file) => ipcRenderer.invoke(channels.discardRecovery, file),
   missing: (id) => ipcRenderer.invoke(channels.missing, id),
   relink: (id, asset) => ipcRenderer.invoke(channels.relink, id, asset),
+  windowControl: (action) => ipcRenderer.invoke(channels.windowControl, action),
+  onWindowMaximized: (listener) => {
+    const forward = (_event: IpcRendererEvent, maximized: boolean) => listener(maximized);
+    ipcRenderer.on(windowMaximizedChannel, forward);
+    return () => ipcRenderer.removeListener(windowMaximizedChannel, forward);
+  },
   onExportProgress: (listener) => {
     const forward = (_event: IpcRendererEvent, progress: ExportProgress) => listener(progress);
     ipcRenderer.on(exportProgressChannel, forward);

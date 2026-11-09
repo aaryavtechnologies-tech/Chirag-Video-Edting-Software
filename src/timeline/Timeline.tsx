@@ -95,7 +95,12 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
       if (event.ctrlKey || event.metaKey) {
         const key = event.key.toLowerCase();
         if (event.shiftKey && (key === 'c' || key === 'v')) return;
-        if (key === 'c') clipboard.current = copyClips(project, selected);
+        if (key === 'c' || key === 'x') {
+          clipboard.current = copyClips(project, selected);
+          if (key === 'x') erase(false);
+        } else if (key === 'a') {
+          setSelected(new Set(project.tracks.flatMap((track) => track.clips.map((clip) => clip.id))));
+        }
         else if (key === 'v' && clipboard.current.length) paste(clipboard.current, playhead);
         else if (key === 'd') {
           const items = copyClips(project, selected);

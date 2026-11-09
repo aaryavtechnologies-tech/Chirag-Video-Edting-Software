@@ -1,4 +1,10 @@
 export const strings = {
+  applicationMenu: 'Application menu', fileMenu: 'File', editMenu: 'Edit', helpMenu: 'Help',
+  openRecent: 'Open recent', exitApp: 'Exit', cut: 'Cut', selectAll: 'Select all', zoomOut: 'Zoom out',
+  fullscreen: 'Full screen', resetPanelSizes: 'Reset panel sizes', about: 'About Video Editor',
+  aboutDescription: 'A desktop video editor for layered video, audio, and captions.',
+  minimize: 'Minimize', maximizeWindow: 'Maximize', restoreWindow: 'Restore window', closeWindow: 'Close window',
+  unsavedChanges: 'Unsaved changes', savedAt: 'Saved',
   commandPalette: 'Command palette', searchActions: 'Search editor actions', noActions: 'No matching actions.',
   toggleTheme: 'Switch light or dark theme', editorDock: 'Editor tools', editorStatus: 'Editor status',
   frame: 'Frame', backgroundIdle: 'Background tasks idle', autosaveEvery: 'Autosave every',

@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, 
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { channels, exportProgressChannel, mediaProgressChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
+import { channels, exportProgressChannel, mediaProgressChannel, windowMaximizedChannel, type DesktopApi, type MediaProgress, type OpenProject } from '../src/types/desktop';
 import { strings } from '../src/lib/strings';
 import { createProject, loadProject, nameSchema, ownedFolderMarker, parseProject, saveProject, thumbnailKey } from './services/projects';
 import { Settings } from './services/settings';
@@ -339,12 +339,25 @@ function registerHandlers(settings: Settings) {
     await frames?.close().catch(logError);
   }, false);
   register('openLog', async () => { shell.showItemInFolder(join(app.getPath('userData'), 'editor.log')); });
+  register('windowControl', async (value) => {
+    const action = z.enum(['minimize', 'maximize', 'fullscreen', 'close']).parse(value);
+    const target = window;
+    if (!target) return false;
+    if (action === 'minimize') target.minimize();
+    if (action === 'maximize') {
+      if (target.isMaximized()) target.unmaximize();
+      else target.maximize();
+    }
+    if (action === 'fullscreen') target.setFullScreen(!target.isFullScreen());
+    if (action === 'close') target.close();
+    return target.isMaximized();
+  }, false);
 }
 
 function createWindow() {
   window = new BrowserWindow({
     title: strings.app, width: 1440, height: 840, minWidth: 1280, minHeight: 720,
-    backgroundColor: '#10111a',
+    backgroundColor: '#0b0c10', frame: false,
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
@@ -352,6 +365,9 @@ function createWindow() {
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event) => event.preventDefault());
+  const notifyWindowState = () => window?.webContents.send(windowMaximizedChannel, window.isMaximized());
+  window.on('maximize', notifyWindowState);
+  window.on('unmaximize', notifyWindowState);
   let closing = false;
   let confirmed = false;
   window.on('close', (event) => {

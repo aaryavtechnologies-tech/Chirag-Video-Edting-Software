@@ -19,7 +19,7 @@ import { alignFrame, timecode, timeToFrame } from '../lib/time';
 import type { Asset, Clip, Project, ProjectSettings, TextStyle } from '../types/project';
 import type { OpenProject } from '../types/desktop';
 import { ExportDialog } from '../export/ExportDialog';
-import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, LayoutMenu, type Dock } from './EditorChrome';
+import { ChromeActions, CommandPalette, EditorDock, EditorTooltips, type Dock } from './EditorChrome';
 import { LayoutProvider } from '../layouts/LayoutProvider';
 import { LandscapeLayout } from '../layouts/LandscapeLayout';
 import { PortraitLayout } from '../layouts/PortraitLayout';
@@ -32,10 +32,13 @@ import { getTemplate } from '../captions/templates';
 import { LayersPanel } from '../panels/Inspector/LayersPanel';
 import { Shortcuts } from './Shortcuts';
 import { ShapeInspector, VisualTools } from '../panels/VisualTools';
+import { Download, Home as HomeIcon, Redo2, Save, SaveAll, Settings2, Undo2 } from 'lucide-react';
+import { IconButton } from '../design-system/IconButton';
+import { TitleBar, type TitleAction } from './TitleBar';
 import type { shapeKinds } from '../lib/visual';
 
 type ProjectDialog = { kind: 'rename' | 'duplicate' | 'delete'; project: RecentProject };
-type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' } |
+type AppDialog = { kind: 'new' | 'settings' | 'projectSettings' | 'saveAs' | 'relink' | 'recovery' | 'about' } |
   { kind: 'adaptContent'; settings: ProjectSettings } | ProjectDialog;
 
 export function App() {
@@ -45,6 +48,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [panelRevision, setPanelRevision] = useState(0);
   const project = current?.project;
   const duration = useMemo(() => project ? projectDuration(project) : 0, [project]);
   const playback = usePlayback(duration);
@@ -123,10 +128,16 @@ export function App() {
     const before = useProject.getState().current;
     storeEdit(recipe);
     const next = useProject.getState().current;
-    if (next && next !== before) void window.desktop.stage(next.project).catch(() => setError(s.operationFailed));
+    if (next && next !== before) {
+      setDirty(true);
+      void window.desktop.stage(next.project).catch(() => setError(s.operationFailed));
+    }
   }
 
   async function openEditor(opened: OpenProject) {
+    playback.stop();
+    select();
+    setDirty(false);
     setCurrent(opened);
     setModal(undefined);
     const files = await window.desktop.missing(opened.project.id);
@@ -221,7 +232,32 @@ export function App() {
   function save() {
     if (current && !busy) void run(async () => {
       acceptSaved(await window.desktop.save(current.project, snapshot.current?.()));
+      setDirty(false);
       setNotice(s.saved);
+    });
+  }
+
+  function closeProject() {
+    if (!current || busy) return;
+    void run(async () => {
+      await window.desktop.save(current.project, snapshot.current?.());
+      setHome(await window.desktop.home());
+      setCurrent();
+      setDirty(false);
+      playback.stop();
+      audio.current.close();
+      select();
+      setTab('media');
+    });
+  }
+
+  function openProject(file?: string) {
+    if (busy) return;
+    void run(async () => {
+      if (current && dirty) acceptSaved(await window.desktop.save(current.project, snapshot.current?.()));
+      setDirty(false);
+      const opened = await window.desktop.open(file);
+      if (opened) await openEditor(opened);
     });
   }
 
@@ -313,34 +349,70 @@ export function App() {
   const message = error && <p className="error" role="alert">{error}</p>;
   const title = modal?.kind === 'new' ? s.newProject : modal ? s[modal.kind] : '';
   const proxyTask = Object.values(proxies).find((update) => update.percent < 100 && !update.failed);
+  const locked = busy || !!modal || exportOpen;
+  const dispatch = (key: string, ctrlKey = false) =>
+    window.dispatchEvent(new KeyboardEvent('keydown', { key, ctrlKey, cancelable: true }));
+  const command = (label: string, shortcut: string, key: string, ctrl = true): TitleAction =>
+    ({ label, shortcut, disabled: !current || locked, action: () => dispatch(key, ctrl) });
+  const menus: { label: string; items: TitleAction[] }[] = [
+    { label: s.fileMenu, items: [
+      { label: s.newProject, disabled: locked, action: () => setModal({ kind: 'new' }) },
+      { label: s.openProject, disabled: locked, action: () => openProject() },
+      { label: s.openRecent, disabled: locked || !home?.recent.length, action: () => undefined,
+        children: (home?.recent ?? []).map((item) => ({ label: item.name, action: () => openProject(item.file) })) },
+      { label: s.save, shortcut: 'Ctrl+S', disabled: !current || locked, action: save },
+      { label: s.saveAs, shortcut: 'Ctrl+Shift+S', disabled: !current || locked, action: () => setModal({ kind: 'saveAs' }) },
+      { label: s.export, shortcut: 'Ctrl+E', disabled: !duration || locked, action: openExport },
+      { label: s.closeProject, disabled: !current || locked, action: closeProject },
+      { label: s.exitApp, action: () => void window.desktop.windowControl('close') },
+    ] },
+    { label: s.editMenu, items: [
+      { label: s.undo, shortcut: 'Ctrl+Z', disabled: !past.length || locked, action: () => stepHistory('undo') },
+      { label: s.redo, shortcut: 'Ctrl+Shift+Z', disabled: !future.length || locked, action: () => stepHistory('redo') },
+      command(s.cut, 'Ctrl+X', 'x'), command(s.copy, 'Ctrl+C', 'c'), command(s.paste, 'Ctrl+V', 'v'),
+      command(s.duplicate, 'Ctrl+D', 'd'), command(s.delete, 'Del', 'Delete', false), command(s.selectAll, 'Ctrl+A', 'a'),
+    ] },
+    { label: s.view, items: [
+      { label: s.layout, action: () => undefined, children: (['auto', 'landscape', 'portrait'] as const).map((mode) =>
+        ({ label: s[mode], action: () => saveLayout({ ...layout, mode }) })) },
+      command(s.zoomIn, '+', '+', false), command(s.zoomOut, '−', '-', false),
+      { label: s.toggleTheme, action: toggleTheme },
+      { label: s.safeZones, disabled: !current, action: () => setSafeGuides(!showGuides) },
+      { label: s.showDock, disabled: !current, action: () => setDockOpen(!dockOpen) },
+      { label: s.showInspector, disabled: !current, action: () => setInspectorOpen(!inspectorOpen) },
+      { label: s.fullscreen, action: () => void window.desktop.windowControl('fullscreen') },
+      { label: s.resetPanelSizes, action: () => { saveLayout({ mode: layout?.mode ?? 'auto' }); setPanelRevision((value) => value + 1); } },
+    ] },
+    { label: s.helpMenu, items: [
+      { label: s.shortcuts, shortcut: '?', action: () => setShowShortcuts(true) },
+      { label: s.about, action: () => setModal({ kind: 'about' }) },
+      { label: s.openLog, action: () => void window.desktop.openLog() },
+    ] },
+  ];
   return <EditorTooltips>
+    <div className="window-shell">
+    <TitleBar menus={menus} name={current?.project.name} dirty={dirty} rename={(name) => edit((draft) => { draft.name = name; })} />
     {current ? <main className={`editor editor-${resolvedLayout}`}>
       <header className="editor-toolbar">
-        <button disabled={busy} onClick={() => void run(async () => {
-          await window.desktop.save(current.project, snapshot.current?.());
-          setHome(await window.desktop.home());
-          setCurrent();
-          playback.stop();
-          audio.current.close();
-          select();
-          setTab('media');
-        })}>{s.home}</button>
-        <h1 className="text-xl font-semibold">{current.project.name}</h1>
-        <button disabled={busy || !past.length} onClick={() => stepHistory('undo')}>{s.undo}</button>
-        <button disabled={busy || !future.length} onClick={() => stepHistory('redo')}>{s.redo}</button>
-        <button disabled={busy} onClick={() => setModal({ kind: 'projectSettings' })}>{s.projectSettings}</button>
-        <button disabled={busy} onClick={() => setModal({ kind: 'saveAs' })}>{s.saveAs}</button>
+        <IconButton label={s.home} disabled={busy} onClick={closeProject}><HomeIcon size={17} /></IconButton>
+        <span className="toolbar-divider" />
+        <IconButton label={s.undo} shortcut="Ctrl+Z" disabled={busy || !past.length} onClick={() => stepHistory('undo')}><Undo2 size={17} /></IconButton>
+        <IconButton label={s.redo} shortcut="Ctrl+Shift+Z" disabled={busy || !future.length} onClick={() => stepHistory('redo')}><Redo2 size={17} /></IconButton>
+        <div className="editor-canvas-info">
+          <button className="resolution-chip" onClick={() => setModal({ kind: 'projectSettings' })}>
+            {current.project.settings.width} × {current.project.settings.height} · {current.project.settings.fps} {s.fps}
+          </button>
+          <IconButton label={s.projectSettings} onClick={() => setModal({ kind: 'projectSettings' })}><Settings2 size={17} /></IconButton>
+        </div>
+        <IconButton label={s.saveAs} shortcut="Ctrl+Shift+S" disabled={busy} onClick={() => setModal({ kind: 'saveAs' })}><SaveAll size={17} /></IconButton>
         {missing.length > 0 && <button disabled={busy} onClick={() => setModal({ kind: 'relink' })}>{s.relink}</button>}
-        <button className="ml-auto" disabled={busy} onClick={save}>{s.save}</button>
-        <LayoutMenu mode={layout?.mode ?? 'auto'} change={(mode) => saveLayout({ ...layout, mode })}
-          dockOpen={dockOpen} inspectorOpen={inspectorOpen} guides={showGuides} toggleDock={() => setDockOpen(!dockOpen)}
-          toggleInspector={() => setInspectorOpen(!inspectorOpen)} toggleGuides={() => setSafeGuides(!showGuides)} />
+        <IconButton label={s.save} shortcut="Ctrl+S" disabled={busy} onClick={save}><Save size={17} /></IconButton>
         <ChromeActions theme={home?.preferences.theme ?? 'dark'} toggleTheme={toggleTheme} openPalette={() => setPalette(true)} />
         <button className="primary" disabled={busy || duration <= 0}
-          onClick={openExport}>{s.export}</button>
+          onClick={openExport}><Download size={16} aria-hidden />{s.export}</button>
       </header>
       <LayoutProvider settings={layout} width={current.project.settings.width} height={current.project.settings.height}>
-      <Layout preferences={layout} dockOpen={dockOpen} inspectorOpen={inspectorOpen}
+      <Layout key={panelRevision} preferences={layout} dockOpen={dockOpen} inspectorOpen={inspectorOpen}
         savePanels={(sizes) => saveLayout({ mode: layout?.mode ?? 'auto', panels: { ...layout?.panels, [resolvedLayout]: sizes } })}
         dock={<EditorDock active={tab} select={(value) => { setDockOpen(true); setTab(value); }}>
           {tab === 'media' || tab === 'audio' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy}
@@ -389,18 +461,18 @@ export function App() {
         <span>{s.quality} · {s[previewQuality]}</span>
         <span>{proxyTask ? `${s.proxyProgress} ${proxyTask.percent}%` : s.backgroundIdle}</span>
         <span>{s.autosaveEvery} {home?.preferences.autosave ?? 30}{s.seconds}</span>
+        <span>{dirty ? s.unsavedChanges : s.savedAt + ' ' + new Date(current.project.updatedAt ?? Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <span>{s[resolvedLayout]}</span>
       </footer>
     </main> : <Home busy={busy || !home} recent={home?.recent ?? []}
       create={() => { setError(''); setModal({ kind: 'new' }); }}
       settings={() => { setError(''); setModal({ kind: 'settings' }); }}
-      open={(file) => void run(async () => {
-        const project = await window.desktop.open(file);
-        if (project) await openEditor(project);
-      })}
+      open={openProject}
       action={(kind, project) => {
         if (kind === 'reveal') void run(() => window.desktop.reveal(project.file));
         else { setError(''); setModal({ kind, project }); }
       }} />}
+    </div>
     {!modal && message}
     {notice && <p className="status" role="status">{notice}</p>}
     {showShortcuts && <Shortcuts close={() => setShowShortcuts(false)} />}
@@ -425,8 +497,10 @@ export function App() {
     {home && modal && <Modal title={title} busy={busy} close={() => { setModal(undefined); setError(''); }}>
       {modal.kind === 'new' && <NewProjectForm preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onCreate={(value) => void run(async () => {
+          if (current && dirty) await window.desktop.save(current.project, snapshot.current?.());
           await openEditor(await window.desktop.create(value));
         })} />}
+      {modal.kind === 'about' && <p className="muted">{s.aboutDescription}</p>}
       {modal.kind === 'settings' && <PreferencesForm preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onSave={(value) => void run(async () => {
           setHome(await window.desktop.preferences(value));

@@ -136,7 +136,8 @@ test('selects portrait from the ratio card and persists a layout override', asyn
     await expect(page.locator('.editor-body')).toHaveAttribute('data-layout', 'portrait');
     await expect(page.getByLabel(s.platformSafe)).toBeVisible();
     await page.getByRole('button', { name: s.view, exact: true }).click();
-    await page.getByRole('menuitemradio', { name: s.landscape }).click();
+    await page.getByRole('menuitem', { name: s.layout, exact: true }).hover();
+    await page.getByRole('menuitem', { name: s.landscape, exact: true }).click();
     await expect(page.locator('.editor-body')).toHaveAttribute('data-layout', 'landscape');
     const settings = join(root, 'profile', 'settings.json');
     await expect.poll(async () => JSON.parse(await readFile(settings, 'utf8')).preferences.layout?.mode)
