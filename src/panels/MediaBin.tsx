@@ -1,4 +1,5 @@
-import { AudioLines, Film, FolderOpen, Image, LayoutGrid, List, Search } from 'lucide-react';
+import { ArrowDownToLine, AudioLines, Film, FolderOpen, Image, LayoutGrid, List, Replace, Search, Trash2 } from 'lucide-react';
+import { ContextActions } from '../design-system/ContextActions';
 import { IconButton } from '../design-system/IconButton';
 import { Select } from '../design-system/Select';
 import { useState } from 'react';
@@ -11,12 +12,14 @@ const assetIcons = { audio: AudioLines, image: Image, video: Film };
 const assetName = (asset: Asset) => asset.path.split(/[\\/]/).at(-1) ?? asset.path;
 const filters = ['all', 'video', 'image', 'audio'] as const;
 
-export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
+export function MediaBin({ assets, proxies, busy, importFiles, audioOnly, canRemove, action }: {
   assets: Asset[]; proxies: Record<string, MediaProgress>; busy: boolean;
   importFiles(files?: string[]): void;
-  audioOnly?: boolean;
+  audioOnly?: boolean; canRemove(id: string): boolean;
+  action(kind: 'add' | 'replace' | 'reveal' | 'remove', asset: Asset): void;
 }) {
   const [filter, setFilter] = useState<typeof filters[number]>('all');
+  const [menu, setMenu] = useState<{ x: number; y: number; asset: Asset }>();
   const [query, setQuery] = useState('');
   const [list, setList] = useState(false);
   const shown = assets.filter((asset) =>
@@ -52,7 +55,11 @@ export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
         const name = assetName(asset);
         const AssetIcon = assetIcons[asset.type];
         const progress = proxies[asset.id];
-        return <li key={asset.id} title={name} draggable={!busy} onDragStart={(event) => {
+        return <li key={asset.id} title={name} draggable={!busy} onContextMenu={(event) => {
+          if (busy) return;
+          event.preventDefault();
+          setMenu({ x: event.clientX, y: event.clientY, asset });
+        }} onDragStart={(event) => {
           event.dataTransfer.setData(assetDragType, asset.id);
           event.dataTransfer.effectAllowed = 'copy';
         }}>
@@ -71,5 +78,11 @@ export function MediaBin({ assets, proxies, busy, importFiles, audioOnly }: {
         </li>;
       })}
     </ul>
+    {menu && <ContextActions {...menu} close={() => setMenu(undefined)} items={[
+      { label: s.addToTimeline, icon: ArrowDownToLine, run: () => action('add', menu.asset) },
+      { label: s.replaceMedia, icon: Replace, run: () => action('replace', menu.asset) },
+      { label: s.reveal, icon: FolderOpen, run: () => action('reveal', menu.asset) },
+      { label: s.removeMedia, icon: Trash2, danger: true, divide: true, disabled: !canRemove(menu.asset.id), run: () => action('remove', menu.asset) },
+    ]} />}
   </section>;
 }

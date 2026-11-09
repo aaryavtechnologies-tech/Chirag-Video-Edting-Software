@@ -21,8 +21,9 @@ export const channels = {
   home: 'settings:read', preferences: 'settings:save', folder: 'dialog:folder',
   create: 'projects:create', open: 'projects:open', save: 'projects:save',
   rename: 'projects:rename', duplicate: 'projects:duplicate', remove: 'projects:remove',
-  reveal: 'projects:reveal',
+  reveal: 'projects:reveal', revealAsset: 'media:reveal',
   importMedia: 'media:import',
+  openExportOutput: 'export:open-output',
   chooseExport: 'export:choose', startExport: 'export:start', cancelExport: 'export:cancel', openLog: 'log:open',
   stageTextFrames: 'export:text-frames',
   stage: 'projects:stage', saveAs: 'projects:save-as', discardRecovery: 'projects:discard-recovery',
@@ -44,6 +45,7 @@ export interface DesktopApi {
   duplicate(file: string, name: string): Promise<HomeState>;
   remove(file: string): Promise<HomeState>;
   reveal(file: string): Promise<void>;
+  revealAsset(projectId: string, assetId: string): Promise<void>;
   importMedia(projectId: string, files?: string[]): Promise<ImportResult>;
   filePath(file: File): string;
   onMediaProgress(listener: (progress: MediaProgress) => void): () => void;
@@ -51,6 +53,7 @@ export interface DesktopApi {
   startExport(value: ExportSettings, file: string, rasters: TextPng[]): Promise<ExportResult>;
   stageTextFrames(batch: TextFrameBatch): Promise<void>;
   cancelExport(): Promise<void>;
+  openExportOutput(file: string, folder: boolean): Promise<void>;
   openLog(): Promise<void>;
   onExportProgress(listener: (progress: ExportProgress) => void): () => void;
   stage(project: Project): Promise<void>;

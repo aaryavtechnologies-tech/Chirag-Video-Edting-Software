@@ -1,4 +1,5 @@
 import { Eye, EyeOff, Film, Flag, GripVertical, Image, Lock, LockOpen, Magnet, Maximize, MousePointer2, Music, Scissors, Trash2, Type, Volume2, VolumeX, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { ContextActions } from '../design-system/ContextActions';
 import { IconButton } from '../design-system/IconButton';
 import { TimelineNavigator } from './TimelineNavigator';
 import { Fragment, useEffect, useRef, useState, type PointerEvent } from 'react';
@@ -290,7 +291,7 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
   const panTo = (time: number) => { if (pane.current) pane.current.scrollLeft = Math.max(0, time * zoom); };
   const dragDelta = gesture && 'clip' in gesture ? gestureDelta(gesture, gesture.point.x) : 0;
 
-  return <section className="timeline" aria-label={s.timeline} onPointerDown={() => { if (menu) setMenu(undefined); }}>
+  return <section className="timeline" aria-label={s.timeline}>
     <div className="timeline-tools">
       <IconButton label={s.selectTool} shortcut="V" onClick={() => { setSelected(new Set()); onSelect(); }}><MousePointer2 size={16} /></IconButton>
       <IconButton label={s.split} shortcut="S" disabled={busy} onClick={split}><Scissors size={16} /></IconButton>
@@ -426,8 +427,9 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
                 active={selected.has(clip.id)} delta={gesture && 'ids' in gesture && gesture.ids.has(clip.id) ? dragDelta : 0}
                 gesture={gesture && 'clip' in gesture ? gesture.kind : undefined}
                 context={(event) => {
-                  if (busy || clip.type !== 'video' || !assets.get(clip.assetId ?? '')?.hasAudio) return;
+                  if (busy) return;
                   event.preventDefault();
+                  if (!selected.has(clip.id)) { setSelected(new Set([clip.id])); onSelect(clip.id, track.id); }
                   setMenu({ id: clip.id, x: event.clientX, y: event.clientY });
                 }}
                 start={(event, kind) => startClip(event, clip, track, kind)} />)}
@@ -449,11 +451,14 @@ export function Timeline({ project, edit, playhead, seek, busy, onSelect, focuse
         }} />}
       </div>
     </div>
-    {menu && <button className="clip-menu" style={{ left: menu.x, top: menu.y }}
-      onPointerDown={(event) => event.stopPropagation()} onClick={() => {
-        attempt((draft) => detachAudio(draft, menu.id, id(), id()));
-        setMenu(undefined);
-      }}>{s.detachAudio}</button>}
+    {menu && <ContextActions x={menu.x} y={menu.y} close={() => setMenu(undefined)} items={[
+      { label: s.split, icon: Scissors, shortcut: 'S', run: split },
+      ...(findClip(project, menu.id)?.clip.type === 'video' && assets.get(findClip(project, menu.id)?.clip.assetId ?? '')?.hasAudio ? [
+        { label: s.detachAudio, icon: Music, run: () => attempt((draft) => detachAudio(draft, menu.id, id(), id())) },
+      ] : []),
+      { label: s.delete, icon: Trash2, shortcut: 'Delete', danger: true, divide: true, run: () => erase(false) },
+      { label: s.rippleDelete, icon: Trash2, shortcut: 'Shift+Delete', danger: true, run: () => erase(true) },
+    ]} />}
   </section>;
 }
 

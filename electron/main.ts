@@ -23,6 +23,7 @@ let pending: Promise<unknown> = Promise.resolve();
 let exporting: AbortController | undefined;
 let exportJob: Promise<unknown> | undefined;
 let exportPath: string | undefined;
+let lastExportOutputs = new Set<string>();
 let textFrameStore: TextFrameStore | undefined;
 let confirmClose = async () => true;
 const html = join(__dirname, '../renderer/index.html');
@@ -285,6 +286,12 @@ function registerHandlers(settings: Settings) {
     await shell.trashItem(owner === project.id ? folder : file);
     return settings.forget(file);
   });
+  register('revealAsset', async (id, assetId) => {
+    const project = (working ?? active)?.project;
+    const asset = project?.id === id && project.assets.find((item) => item.id === assetId);
+    if (!asset) throw new Error(strings.operationFailed);
+    shell.showItemInFolder(asset.path);
+  });
   register('reveal', async (file) => { shell.showItemInFolder(known(file)); });
   register('chooseExport', async (value) => {
     if (!active) throw new Error(strings.exportFailed);
@@ -317,6 +324,7 @@ function registerHandlers(settings: Settings) {
         (progress) => window?.webContents.send(exportProgressChannel, progress), controller.signal, frames?.finish(settings));
       exportJob = task;
       const result = await task;
+      if (result.files.length) lastExportOutputs = new Set(result.files);
       if (settings.openFolder && result.files[0]) shell.showItemInFolder(result.files[0]);
       return result;
     } catch (error) {
@@ -329,6 +337,11 @@ function registerHandlers(settings: Settings) {
       exporting = undefined;
       exportJob = undefined;
     }
+  }, false);
+  register('openExportOutput', async (file, folder) => {
+    if (!lastExportOutputs.has(file) || typeof folder !== 'boolean') throw new Error(strings.operationFailed);
+    if (folder) shell.showItemInFolder(file);
+    else if (await shell.openPath(file)) throw new Error(strings.operationFailed);
   }, false);
   register('cancelExport', async () => {
     if (exporting) { exporting.abort(); return; }

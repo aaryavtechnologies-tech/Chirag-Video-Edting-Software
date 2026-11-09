@@ -1,3 +1,5 @@
+import { CheckCircle2, Download, Film, FolderOpen, Music, Play } from 'lucide-react';
+import { timecode } from '../lib/time';
 import { Select } from '../design-system/Select';
 import { useEffect, useState } from 'react';
 import { Modal } from '../app/Modal';
@@ -37,8 +39,8 @@ async function prepareRasters(project: Project, settings: ExportSettings, cancel
   return rasters;
 }
 
-export function ExportDialog({ project, volume, save, close, onCancelled }: {
-  project: Project; volume: number; save(): Promise<void>; close(): void; onCancelled(): void;
+export function ExportDialog({ project, volume, preview, save, close, onCancelled }: {
+  project: Project; volume: number; preview?: string; save(): Promise<void>; close(): void; onCancelled(): void;
 }) {
   const total = projectDuration(project);
   const [value, setValue] = useState<ExportSettings>({
@@ -51,6 +53,7 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
   const [quality, setQuality] = useState<keyof typeof qualityFactors>('high');
   const [status, setStatus] = useState<'idle' | 'choosing' | 'preparing' | 'rendering'>('idle');
   const [error, setError] = useState('');
+  const [outputError, setOutputError] = useState(false);
   const [result, setResult] = useState<ExportResult>();
   const [progress, setProgress] = useState<ExportProgress>();
   const [controller, setController] = useState<AbortController>();
@@ -118,103 +121,134 @@ export function ExportDialog({ project, volume, save, close, onCancelled }: {
     }
   }
 
-  return <Modal title={s.export} busy={busy} close={close}>
-    <form onSubmit={(event) => { event.preventDefault(); void run(); }}>
-      <fieldset disabled={busy}>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(exportPresets) as (keyof typeof exportPresets)[]).map((key) =>
-            <button type="button" key={key} onClick={() => applyPreset(key)}>{s[key]}</button>)}
-        </div>
-        <label>{s.exportMode}<Select label={s.exportMode} value={value.mode} onChange={(event) => update({ mode: event.target.value as ExportSettings['mode'] })}>
-          <option value="video">{s.videoAndAudio}</option><option value="audio">{s.audioOnly}</option>
-          <option value="both">{s.both}</option>
-        </Select></label>
-        {value.mode !== 'audio' && <>
-          <div className="grid grid-cols-2 gap-3">
-            <label>{s.videoFormat}<Select label={s.videoFormat} value={value.videoFormat}
-              onChange={(event) => update({ videoFormat: event.target.value as ExportSettings['videoFormat'] })}>
-              {Object.entries(videoFormats).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+  const active = status === 'preparing' || status === 'rendering';
+  const cancel = () => { controller?.abort(); void window.desktop.cancelExport(); };
+  const openOutput = (folder: boolean) => {
+    const file = result?.files[0];
+    if (file) void window.desktop.openExportOutput(file, folder).catch(() => setOutputError(true));
+  };
+  return <Modal title={s.export} size="large" subtitle={project.name} busy={busy} close={close} footer={<>
+    {active ? <button type="button" onClick={cancel}>{s.cancelExport}</button> : <>
+      <button type="button" onClick={close} disabled={busy}>{result ? s.closeDialog : s.cancel}</button>
+      {result?.files.length ? <>
+        <button className="export-action" onClick={() => openOutput(true)}><FolderOpen size={15} />{s.showOutputFolder}</button>
+        <button className="export-action primary" onClick={() => openOutput(false)}><Play size={15} />{s.openOutputFile}</button>
+      </> : <button className="export-action primary" type="submit" form="export-options" disabled={busy || !(duration > 0)}>
+        <Download size={15} />{s.chooseOutput}
+      </button>}
+    </>}
+  </>}>
+    <div className="export-layout">
+      <aside className="export-summary">
+        <div className="export-preview">{value.mode !== 'audio' && preview ? <img src={preview} alt={s.preview} /> :
+          value.mode === 'audio' ? <Music size={32} /> : <Film size={32} />}</div>
+        <dl>
+          <div><dt>{s.duration}</dt><dd>{timecode(Math.max(0, duration), value.fps)}</dd></div>
+          <div><dt>{s.estimatedSize}</dt><dd>{Math.ceil(estimate / 1_000_000)} {s.megabytes}</dd></div>
+          <div><dt>{s.encoder}</dt><dd>{result?.encoder ?? progress?.encoder ?? (value.mode === 'audio' || !value.hardware || value.videoFormat === 'vp9' ? s.softwareEncoder : s.auto)}</dd></div>
+        </dl>
+      </aside>
+      <div>
+        <form id="export-options" onSubmit={(event) => { event.preventDefault(); setOutputError(false); void run(); }}>
+          <fieldset disabled={busy}>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(exportPresets) as (keyof typeof exportPresets)[]).map((key) =>
+                <button type="button" key={key} onClick={() => applyPreset(key)}>{s[key]}</button>)}
+            </div>
+            <h3 className="export-section-title">{s.format}</h3>
+            <label>{s.exportMode}<Select label={s.exportMode} value={value.mode} onChange={(event) => update({ mode: event.target.value as ExportSettings['mode'] })}>
+              <option value="video">{s.videoAndAudio}</option><option value="audio">{s.audioOnly}</option>
+              <option value="both">{s.both}</option>
             </Select></label>
-            <label>{s.resolution}<Select label={s.resolution} value={resolution} onChange={(event) => setSize(event.target.value)}>
-              <option value="project">{s.projectResolution}</option>
-              {resolution === 'preset' && <option value="preset">{s.presetResolution}</option>}
-              {Object.keys(exportSizes).map((size) => <option key={size}>{size}</option>)}
+            {value.mode !== 'audio' && <>
+              <h3 className="export-section-title">{s.video}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <label>{s.videoFormat}<Select label={s.videoFormat} value={value.videoFormat}
+                  onChange={(event) => update({ videoFormat: event.target.value as ExportSettings['videoFormat'] })}>
+                  {Object.entries(videoFormats).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </Select></label>
+                <label>{s.resolution}<Select label={s.resolution} value={resolution} onChange={(event) => setSize(event.target.value)}>
+                  <option value="project">{s.projectResolution}</option>
+                  {resolution === 'preset' && <option value="preset">{s.presetResolution}</option>}
+                  {Object.keys(exportSizes).map((size) => <option key={size}>{size}</option>)}
+                </Select></label>
+                <label>{s.frameRate}<Select label={s.frameRate} value={value.fps}
+                  onChange={(event) => updateVideo(value.width, value.height, frameRates[event.target.selectedIndex])}>
+                  {frameRates.map((rate) => <option key={rate}>{rate}</option>)}
+                </Select></label>
+                <label>{s.exportQuality}<Select label={s.exportQuality} value={quality} onChange={(event) => {
+                  const next = event.target.value as keyof typeof qualityFactors;
+                  setQuality(next);
+                  if (next !== 'customBitrate') update({
+                    bitrate: Math.round(suggestedBitrate(value.width, value.height, value.fps) * qualityFactors[next] * 10) / 10,
+                  });
+                }}>
+                  {(Object.keys(qualityFactors) as (keyof typeof qualityFactors)[]).map((key) =>
+                    <option key={key} value={key}>{s[key]}</option>)}
+                </Select></label>
+                <label>{s.bitrate}<input type="number" min={0.1} max={500} step={0.1} required
+                  value={Number.isFinite(value.bitrate) ? value.bitrate : ''}
+                  onChange={(event) => { setQuality('customBitrate'); update({ bitrate: event.target.valueAsNumber }); }} /></label>
+              </div>
+              <span className="muted">{value.width} × {value.height} · {value.fps} {s.fps}</span>
+              {value.videoFormat !== 'vp9' && <label className="toggle-field"><input type="checkbox" checked={value.hardware}
+                onChange={(event) => update({ hardware: event.target.checked })} />{s.hardwareAcceleration}</label>}
+              {value.videoFormat === 'h264' && value.width * value.height >= 8_000_000 && value.fps >= 50 &&
+                <p className="export-warning">{s.compatibility4k}</p>}
+            </>}
+            {value.mode !== 'video' && <><h3 className="export-section-title">{s.audio}</h3><div className="grid grid-cols-2 gap-3">
+              <label>{s.audioFormat}<Select label={s.audioFormat} value={value.audioFormat}
+                onChange={(event) => update({ audioFormat: event.target.value as ExportSettings['audioFormat'] })}>
+                {Object.entries(audioFormats).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              </Select></label>
+              {value.audioFormat !== 'wav' && <label>{s.audioBitrate}<Select label={s.audioBitrate} value={value.audioBitrate}
+                onChange={(event) => update({ audioBitrate: event.target.value === '192' ? 192 : 320 })}>
+                <option>192</option><option>320</option>
+              </Select></label>}
+            </div></>}
+            <h3 className="export-section-title">{s.range}</h3>
+            <label>{s.range}<Select label={s.range} value={value.range ? 'markers' : 'all'}
+              onChange={(event) => update({ range: event.target.value === 'markers'
+                ? { start: markers[0], end: markers.at(-1)! } : undefined })}>
+              <option value="all">{s.wholeProject}</option>
+              <option value="markers" disabled={markers.length < 3}>{s.markerRange}</option>
             </Select></label>
-            <label>{s.frameRate}<Select label={s.frameRate} value={value.fps}
-              onChange={(event) => updateVideo(value.width, value.height, frameRates[event.target.selectedIndex])}>
-              {frameRates.map((rate) => <option key={rate}>{rate}</option>)}
-            </Select></label>
-            <label>{s.exportQuality}<Select label={s.exportQuality} value={quality} onChange={(event) => {
-              const next = event.target.value as keyof typeof qualityFactors;
-              setQuality(next);
-              if (next !== 'customBitrate') update({
-                bitrate: Math.round(suggestedBitrate(value.width, value.height, value.fps) * qualityFactors[next] * 10) / 10,
-              });
-            }}>
-              {(Object.keys(qualityFactors) as (keyof typeof qualityFactors)[]).map((key) =>
-                <option key={key} value={key}>{s[key]}</option>)}
-            </Select></label>
-            <label>{s.bitrate}<input type="number" min={0.1} max={500} step={0.1} required
-              value={Number.isFinite(value.bitrate) ? value.bitrate : ''}
-              onChange={(event) => { setQuality('customBitrate'); update({ bitrate: event.target.valueAsNumber }); }} /></label>
-          </div>
-          <span className="muted">{value.width} × {value.height} · {value.fps} {s.fps}</span>
-          {value.videoFormat !== 'vp9' && <label className="toggle-field"><input type="checkbox" checked={value.hardware}
-            onChange={(event) => update({ hardware: event.target.checked })} />{s.hardwareAcceleration}</label>}
-          {value.videoFormat === 'h264' && value.width * value.height >= 8_000_000 && value.fps >= 50 &&
-            <p className="muted">{s.compatibility4k}</p>}
-        </>}
-        {value.mode !== 'video' && <div className="grid grid-cols-2 gap-3">
-          <label>{s.audioFormat}<Select label={s.audioFormat} value={value.audioFormat}
-            onChange={(event) => update({ audioFormat: event.target.value as ExportSettings['audioFormat'] })}>
-            {Object.entries(audioFormats).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-          </Select></label>
-          {value.audioFormat !== 'wav' && <label>{s.audioBitrate}<Select label={s.audioBitrate} value={value.audioBitrate}
-            onChange={(event) => update({ audioBitrate: event.target.value === '192' ? 192 : 320 })}>
-            <option>192</option><option>320</option>
-          </Select></label>}
+            {value.range && <div className="grid grid-cols-2 gap-3">
+              <label>{s.rangeStart}<Select label={s.rangeStart} value={value.range.start} onChange={(event) =>
+                update({ range: { start: Number(event.target.value), end: value.range!.end } })}>
+                {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
+              </Select></label>
+              <label>{s.rangeEnd}<Select label={s.rangeEnd} value={value.range.end} onChange={(event) =>
+                update({ range: { start: value.range!.start, end: Number(event.target.value) } })}>
+                {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
+              </Select></label>
+            </div>}
+            {value.mode !== 'audio' && project.captionTracks?.some((track) => !track.hidden && track.segments.length) &&
+              <label>{s.captions}<Select label={s.captions} value={value.burnCaptions === false ? 'sidecar' : 'burn'}
+                onChange={(event) => update({ burnCaptions: event.target.value === 'burn' })}>
+                <option value="burn">{s.burnCaptions}</option><option value="sidecar">{s.captionSidecar}</option>
+              </Select></label>}
+            <h3 className="export-section-title">{s.output}</h3>
+            <label className="toggle-field"><input type="checkbox" checked={value.openFolder}
+              onChange={(event) => update({ openFolder: event.target.checked })} />{s.openFolderAfter}</label>
+          </fieldset>
+        </form>
+        {(status === 'preparing' || status === 'rendering') && <div className="grid gap-2 mt-3">
+          <progress aria-label={s.exportProgress} max={100} value={progress?.percent ?? 0} />
+          <p role="status">{status === 'preparing' ? `${s.preparingExport}${preparedFrames ? ` ${preparedFrames} ${s.framesPrepared}` : ''}` : progress?.verifying ? s.verifyingExport :
+            `${progress?.percent ?? 0}% · ${s.elapsed} ${Math.round(progress?.elapsed ?? 0)} ${s.seconds}${progress?.eta === undefined ? '' :
+              ` · ${s.eta} ${Math.round(progress.eta)} ${s.seconds}`}`}</p>
+          {progress?.encoder && <p className="muted">{s.encoder} {progress.encoder}</p>}
+          {progress?.fallback && <p className="muted">{s.softwareFallback}</p>}
         </div>}
-        <label>{s.range}<Select label={s.range} value={value.range ? 'markers' : 'all'}
-          onChange={(event) => update({ range: event.target.value === 'markers'
-            ? { start: markers[0], end: markers.at(-1)! } : undefined })}>
-          <option value="all">{s.wholeProject}</option>
-          <option value="markers" disabled={markers.length < 3}>{s.markerRange}</option>
-        </Select></label>
-        {value.range && <div className="grid grid-cols-2 gap-3">
-          <label>{s.rangeStart}<Select label={s.rangeStart} value={value.range.start} onChange={(event) =>
-            update({ range: { start: Number(event.target.value), end: value.range!.end } })}>
-            {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
-          </Select></label>
-          <label>{s.rangeEnd}<Select label={s.rangeEnd} value={value.range.end} onChange={(event) =>
-            update({ range: { start: value.range!.start, end: Number(event.target.value) } })}>
-            {markers.map((time) => <option key={time} value={time}>{time.toFixed(3)} {s.seconds}</option>)}
-          </Select></label>
+        {error && <p className="error" role="alert">{error} <button onClick={() => void window.desktop.openLog()}>{s.openLog}</button></p>}
+        {result && <div className="mt-3" role="status">
+          <strong className="export-success"><CheckCircle2 size={18} />{s.exportDone}</strong>
+          {result.encoder && <p className="muted">{s.encoder} {result.encoder}</p>}
+          <ul className="muted break-all">{result.files.map((file) => <li key={file}>{file}</li>)}</ul>
         </div>}
-        {value.mode !== 'audio' && project.captionTracks?.some((track) => !track.hidden && track.segments.length) &&
-          <label>{s.captions}<Select label={s.captions} value={value.burnCaptions === false ? 'sidecar' : 'burn'}
-            onChange={(event) => update({ burnCaptions: event.target.value === 'burn' })}>
-            <option value="burn">{s.burnCaptions}</option><option value="sidecar">{s.captionSidecar}</option>
-          </Select></label>}
-        <label className="toggle-field"><input type="checkbox" checked={value.openFolder}
-          onChange={(event) => update({ openFolder: event.target.checked })} />{s.openFolderAfter}</label>
-        <p className="muted">{s.estimatedSize} {Math.ceil(estimate / 1_000_000)} {s.megabytes}</p>
-        <button className="primary justify-self-end" disabled={!(duration > 0)}>{s.chooseOutput}</button>
-      </fieldset>
-    </form>
-    {(status === 'preparing' || status === 'rendering') && <div className="grid gap-2 mt-3">
-      <progress aria-label={s.exportProgress} max={100} value={progress?.percent ?? 0} />
-      <p role="status">{status === 'preparing' ? `${s.preparingExport}${preparedFrames ? ` ${preparedFrames} ${s.framesPrepared}` : ''}` : progress?.verifying ? s.verifyingExport :
-        `${progress?.percent ?? 0}% · ${s.elapsed} ${Math.round(progress?.elapsed ?? 0)} ${s.seconds}${progress?.eta === undefined ? '' :
-          ` · ${s.eta} ${Math.round(progress.eta)} ${s.seconds}`}`}</p>
-      {progress?.encoder && <p className="muted">{s.encoder} {progress.encoder}</p>}
-      {progress?.fallback && <p className="muted">{s.softwareFallback}</p>}
-      <button onClick={() => { controller?.abort(); void window.desktop.cancelExport(); }}>{s.cancelExport}</button>
-    </div>}
-    {error && <p className="error" role="alert">{error} <button onClick={() => void window.desktop.openLog()}>{s.openLog}</button></p>}
-    {result && <div className="mt-3" role="status">
-      <strong>{s.exportDone}</strong>
-      {result.encoder && <p className="muted">{s.encoder} {result.encoder}</p>}
-      <ul className="muted break-all">{result.files.map((file) => <li key={file}>{file}</li>)}</ul>
-    </div>}
+        {outputError && <p className="error" role="alert">{s.operationFailed}</p>}
+      </div>
+    </div>
   </Modal>;
 }

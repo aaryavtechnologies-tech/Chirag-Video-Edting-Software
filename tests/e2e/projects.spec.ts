@@ -90,7 +90,7 @@ test('imports a video, builds a proxy, and persists media across reopening', asy
     await expect(page.getByText(s.proxyReady)).toBeVisible();
     await expect(page.locator('[data-clip-id]')).toHaveCount(2);
     await page.locator('.timeline-clip').first().click({ button: 'right' });
-    await page.getByRole('button', { name: s.detachAudio, exact: true }).click();
+    await page.getByRole('menuitem', { name: s.detachAudio, exact: true }).click();
     await expect(page.locator('.clip-audio')).toHaveCount(1);
     await expect(page.locator('.clip-audio .clip-wave')).toHaveCount(1);
     const file = join(projects, s.defaultName, s.defaultName + '.vedit');

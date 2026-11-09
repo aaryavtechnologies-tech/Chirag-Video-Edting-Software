@@ -7,7 +7,7 @@ import { Modal } from './Modal';
 import { NewProjectForm, PreferencesForm, SaveAsForm } from './ProjectForms';
 import { MediaBin } from '../panels/MediaBin';
 import { Timeline } from '../timeline/Timeline';
-import { addTrack, findClip, overlaps, projectDuration } from '../timeline/operations';
+import { addTrack, findClip, insertAsset, overlaps, projectDuration } from '../timeline/operations';
 import { PreviewCanvas } from '../preview/PreviewCanvas';
 import { usePlayback } from '../preview/usePlayback';
 import { AudioEngine } from '../preview/audioEngine';
@@ -32,7 +32,7 @@ import { getTemplate } from '../captions/templates';
 import { LayersPanel } from '../panels/Inspector/LayersPanel';
 import { Shortcuts } from './Shortcuts';
 import { ShapeInspector, VisualTools } from '../panels/VisualTools';
-import { Download, Home as HomeIcon, Redo2, Save, SaveAll, Settings2, Undo2 } from 'lucide-react';
+import { CheckCircle2, Download, Home as HomeIcon, Redo2, Save, SaveAll, Settings2, Undo2 } from 'lucide-react';
 import { ProjectColors } from '../design-system/ColorPicker';
 import { IconButton } from '../design-system/IconButton';
 import { TitleBar, type TitleAction } from './TitleBar';
@@ -49,6 +49,11 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [dirty, setDirty] = useState(false);
   const [panelRevision, setPanelRevision] = useState(0);
   const project = current?.project;
@@ -69,6 +74,7 @@ export function App() {
   const [timelineZoom, setTimelineZoom] = useState(100);
   const [previewQuality, setPreviewQuality] = useState<'full' | 'half' | 'quarter'>('half');
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportPreview, setExportPreview] = useState<string>();
   const [missing, setMissing] = useState<Asset[]>([]);
   const [dockOpen, setDockOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
@@ -198,6 +204,7 @@ export function App() {
   function openExport() {
     if (!project || busy || duration <= 0 || exportOpen) return;
     if (playing) playback.toggle();
+    setExportPreview(snapshot.current?.());
     setExportOpen(true);
   }
 
@@ -284,6 +291,30 @@ export function App() {
         throw failure;
       }
     });
+  }
+
+  function canRemoveAsset(id: string) {
+    return !!project && !project.tracks.some((track) => track.clips.some((clip) => clip.assetId === id));
+  }
+
+  function mediaAction(kind: 'add' | 'replace' | 'reveal' | 'remove', asset: Asset) {
+    if (!current || busy) return;
+    if (kind === 'reveal') void run(() => window.desktop.revealAsset(current.project.id, asset.id));
+    if (kind === 'replace') void run(async () => {
+      const next = await window.desktop.relink(current.project.id, asset.id);
+      if (next) { acceptSaved(next); setDirty(false); }
+    });
+    if (kind === 'remove' && canRemoveAsset(asset.id)) edit((draft) => {
+      draft.assets = draft.assets.filter((item) => item.id !== asset.id);
+    });
+    if (kind === 'add') {
+      const clipId = crypto.randomUUID();
+      const trackId = crypto.randomUUID();
+      const start = alignFrame(playhead, current.project.settings.fps);
+      let added = false;
+      edit((draft) => { added = insertAsset(draft, asset, undefined, start, clipId, trackId); });
+      if (added) select(clipId, trackId);
+    }
   }
 
   function importFiles(files?: string[]) {
@@ -418,7 +449,7 @@ export function App() {
         savePanels={(sizes) => saveLayout({ mode: layout?.mode ?? 'auto', panels: { ...layout?.panels, [resolvedLayout]: sizes } })}
         dock={<EditorDock active={tab} select={(value) => { setDockOpen(true); setTab(value); }}>
           {tab === 'media' || tab === 'audio' ? <MediaBin assets={current.project.assets} proxies={proxies} busy={busy}
-            audioOnly={tab === 'audio'} importFiles={importFiles} /> :
+            audioOnly={tab === 'audio'} importFiles={importFiles} canRemove={canRemoveAsset} action={mediaAction} /> :
             tab === 'text' || tab === 'templates' ? <TextPanel add={addText} busy={busy} /> :
             tab === 'captions' ? <CaptionsPanel project={current.project} edit={edit} trackId={selection.trackId}
               selected={selectedCaptions} playhead={playhead} select={selectCaption} seek={playback.seek} /> :
@@ -476,7 +507,7 @@ export function App() {
       }} />}
     </div>
     {!modal && message}
-    {notice && <p className="status" role="status">{notice}</p>}
+    {notice && <p className="status editor-toast" role="status"><CheckCircle2 size={16} aria-hidden="true" />{notice}</p>}
     {showShortcuts && <Shortcuts close={() => setShowShortcuts(false)} />}
     {current && palette && <CommandPalette close={() => setPalette(false)} actions={[
       { label: s.save, shortcut: 'Ctrl+S', disabled: busy, run: save },
@@ -492,12 +523,16 @@ export function App() {
       { label: s.copyStyle, shortcut: 'Ctrl+Shift+C', disabled: inspected?.type !== 'text' && !inspectedCaption, run: copyStyle },
       { label: s.pasteStyle, shortcut: 'Ctrl+Shift+V', disabled: !styleClipboard.current, run: pasteStyle },
     ]} />}
-    {current && exportOpen && <ExportDialog project={current.project} volume={volume}
+    {current && exportOpen && <ExportDialog project={current.project} volume={volume} preview={exportPreview}
       save={async () => { acceptSaved(await window.desktop.save(current.project, snapshot.current?.())); }}
       onCancelled={() => { setExportOpen(false); setNotice(s.exportCancelled); }}
       close={() => setExportOpen(false)} />}
-    {home && modal && <Modal title={title} busy={busy} close={() => { setModal(undefined); setError(''); }}>
-      {modal.kind === 'new' && <NewProjectForm initialRatio={modal.ratio} preferences={home.preferences} busy={busy} onFolder={pickFolder}
+    {home && modal && <Modal key={modal.kind} title={title} size={modal.kind === 'delete' || modal.kind === 'about' ? 'small' : 'medium'} busy={busy} close={() => { setModal(undefined); setError(''); }}
+      footer={modal.kind === 'new' || modal.kind === 'projectSettings' ? <>
+        <button disabled={busy} onClick={() => { setModal(undefined); setError(''); }}>{s.cancel}</button>
+        <button type="submit" form="project-form" className="primary" disabled={busy}>{modal.kind === 'new' ? s.create : s.save}</button>
+      </> : undefined}>
+      {modal.kind === 'new' && <NewProjectForm formId="project-form" initialRatio={modal.ratio} preferences={home.preferences} busy={busy} onFolder={pickFolder}
         onCreate={(value) => void run(async () => {
           if (current && dirty) await window.desktop.save(current.project, snapshot.current?.());
           await openEditor(await window.desktop.create(value));
@@ -508,7 +543,7 @@ export function App() {
           setHome(await window.desktop.preferences(value));
           setModal(undefined);
         })} />}
-      {modal.kind === 'projectSettings' && current && <NewProjectForm preferences={home.preferences}
+      {modal.kind === 'projectSettings' && current && <NewProjectForm formId="project-form" preferences={home.preferences}
         initial={current.project.settings} busy={busy} onFolder={pickFolder} onCreate={({ settings }) => {
           const before = current.project.settings;
           if (before.width * settings.height !== settings.width * before.height) setModal({ kind: 'adaptContent', settings });
@@ -585,7 +620,7 @@ function ProjectActionForm({ modal, busy, submit }: {
     <fieldset disabled={busy}>
       {kind === 'delete' ? <p>{s.deleteConfirm}</p> :
         <label>{s.name}<input value={name} required maxLength={120} onChange={(event) => setName(event.target.value)} /></label>}
-      <button className="primary justify-self-end">{s[kind]}</button>
+      <button className={kind === 'delete' ? 'destructive justify-self-end' : 'primary justify-self-end'}>{s[kind]}</button>
     </fieldset>
   </form>;
 }
