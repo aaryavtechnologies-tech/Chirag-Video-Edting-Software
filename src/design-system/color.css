@@ -1,0 +1,32 @@
+.color-field { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:6px; color:var(--text-dim); font-size:11px; }
+.color-trigger { display:flex; gap:6px; align-items:center; color:var(--text); font-variant-numeric:tabular-nums; padding:3px 6px; }
+.color-chip,.color-alpha { --checker:repeating-conic-gradient(#8e90a2 0 25%,#dbdce3 0 50%) 0/8px 8px;
+  display:block; width:24px; height:24px; background:var(--checker); border-radius:4px; overflow:hidden; }
+.color-chip i { display:block; width:100%; height:100%; pointer-events:none; }
+.color-popover { position:fixed; z-index:50; display:grid; gap:7px; width:min(256px,calc(100vw - 16px)); max-height:calc(100vh - 16px);
+  overflow:auto; padding:10px; color:var(--text); background:var(--bg-panel-2); border:1px solid var(--border-strong);
+  border-radius:12px; box-shadow:var(--shadow); pointer-events:auto; animation:modal-enter 120ms ease-out; }
+.color-plane { position:relative; height:160px; border-radius:6px; touch-action:none; cursor:crosshair;
+  background:linear-gradient(to top,black,transparent),linear-gradient(to right,white,transparent),hsl(var(--hue) 100% 50%); }
+.color-plane i { position:absolute; width:12px; height:12px; border:2px solid white; border-radius:50%;
+  transform:translate(-50%,-50%); box-shadow:0 0 0 1px #0009; pointer-events:none; }
+.color-popover input.color-hue,.color-popover input.color-alpha { height:8px; margin-block:4px; width:100%; overflow:visible; }
+.color-popover input.color-hue { background:linear-gradient(90deg,red,yellow,lime,cyan,blue,magenta,red); }
+.color-popover input.color-alpha { background:linear-gradient(90deg,transparent,var(--solid-color)),var(--checker); }
+.color-popover input[type="range"]::-webkit-slider-thumb { background:white; box-shadow:0 0 0 1px #0009; }
+.color-values,.color-popover footer { display:flex; align-items:center; gap:4px; }
+.color-values input { flex:1; width:0; min-width:0; padding-inline:4px; font-variant-numeric:tabular-nums; }
+.color-popover .tool-icon { width:27px; height:27px; flex:none; }
+.color-popover h4 { color:var(--text-dim); font-size:11px; margin-bottom:4px; }
+.color-popover .color-swatches { gap:4px; }
+.color-popover .color-swatches button { width:24px; height:21px; padding:0; border-color:var(--border-strong); }
+.color-popover .color-swatches button:hover { background:var(--checker); }
+.color-popover footer { justify-content:space-between; }
+.gradient-editor { display:grid; gap:6px; }
+.gradient-strip { position:relative; height:24px; border-radius:6px; border:1px solid var(--border-strong); cursor:crosshair; touch-action:none; }
+.gradient-strip button { position:absolute; top:1px; width:12px; height:20px; padding:0; border:2px solid white;
+  border-radius:3px; translate:-50% 0; box-shadow:0 0 2px #000c; cursor:ew-resize; touch-action:none; }
+.gradient-strip button[aria-pressed="true"] { outline:2px solid var(--accent); }
+.gradient-editor .gradient-stop-controls { display:flex; align-items:center; gap:4px; }
+.gradient-editor .gradient-stop-controls > :first-child { flex:1; }
+.gradient-editor .gradient-stop-controls .tool-icon { width:26px; height:26px; flex:none; }

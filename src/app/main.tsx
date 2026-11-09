@@ -10,6 +10,7 @@ import '../captions/captions.css';
 import './fonts.css';
 import '../design-system/base.css';
 import './home.css';
+import '../design-system/color.css';
 import '../panels/Inspector/inspector.css';
 
 document.title = strings.app;

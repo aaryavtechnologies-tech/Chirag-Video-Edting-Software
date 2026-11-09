@@ -198,11 +198,11 @@ export function TextInspector({ clip, project, edit, previewAnimation }: {
       <Choice label={s.fillType} value={gradient ? 'gradient' : 'solid'} values={['solid', 'gradient']}
         change={(type) => type === 'gradient' ? setGradient({}) : set({ fill: { type, color: fill } })} />
       {gradient ? <>
-        <ColorField label={s.gradientFrom} value={from} change={(value) => setGradient({ from: withAlpha(value, alpha(from)) })} />
-        <ColorField label={s.gradientTo} value={to} change={(value) => setGradient({ to: withAlpha(value, alpha(to)) })} />
+        <ColorField label={s.gradientFrom} value={from} change={(value) => setGradient({ from: value })} />
+        <ColorField label={s.gradientTo} value={to} change={(value) => setGradient({ to: value })} />
         <NumberField label={s.angle} value={style.fill?.gradient?.angle ?? 0} min={0} max={360}
           change={(angle) => setGradient({ angle })} />
-      </> : <ColorField label={s.color} value={fill} change={(value) => set({ fill: { type: 'solid', color: withAlpha(value, alpha(fill)) } })} />}
+      </> : <ColorField label={s.color} value={fill} change={(value) => set({ fill: { type: 'solid', color: value } })} />}
       <NumberField label={s.opacity} value={alpha(gradient ? from : fill)} min={0} max={1} step={0.01}
         change={(opacity) => gradient ? setGradient({ from: withAlpha(from, opacity), to: withAlpha(to, opacity) })
           : set({ fill: { type: 'solid', color: withAlpha(fill, opacity) } })} />
@@ -262,7 +262,7 @@ function withAlpha(value: string, opacity: number) {
 }
 
 function ColorField({ label, value, change }: { label: string; value?: string; change(value: string): void }) {
-  return <ColorPicker label={label} value={hex(value)} change={change} />;
+  return <ColorPicker label={label} value={value ?? '#000000'} change={change} />;
 }
 
 function Effect({ label, value, defaults: initial, fields, disabled, change }: {

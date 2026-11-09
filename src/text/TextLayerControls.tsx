@@ -1,3 +1,5 @@
+import { GradientEditor } from '../design-system/GradientEditor';
+import { ColorPicker } from '../design-system/ColorPicker';
 import { Select } from '../design-system/Select';
 import { strings as s } from '../lib/strings';
 import type { TextStyle } from '../types/project';
@@ -15,8 +17,7 @@ function NumberInput({ label, value, min, max, step = 1, change }: {
 }
 
 function ColorInput({ label = s.color, value, change }: { label?: string; value?: string; change(value: string): void }) {
-  return <label>{label}<input type="color" value={/^#[\da-f]{6}$/i.test(value ?? '') ? value : '#ffffff'}
-    onChange={(event) => change(event.target.value)} /></label>;
+  return <ColorPicker label={label} value={value ?? '#ffffff'} change={change} />;
 }
 
 export function TextLayerControls({ style, set }: { style: TextStyle; set(value: Partial<TextStyle>): void }) {
@@ -45,30 +46,13 @@ export function TextLayerControls({ style, set }: { style: TextStyle; set(value:
         {key === 'fills' && (() => {
           const fill = groups.fills[index];
           const gradient = fill.gradient ?? {};
-          const stops = gradient.stops ?? [{ offset: 0, color: gradient.from ?? '#ffffff' }, { offset: 1, color: gradient.to ?? '#8b7bff' }];
           return <>
             <label>{s.fillType}<Select label={s.fillType} value={fill.type ?? 'solid'}
               onChange={(event) => update(key, index, { type: event.target.value })}>
               <option value="solid">{s.solid}</option><option value="gradient">{s.gradient}</option>
             </Select></label>
             {fill.type === 'gradient' && <>
-              <label>{s.gradientKind}<Select label={s.gradientKind} value={gradient.kind ?? 'linear'}
-                onChange={(event) => update(key, index, { gradient: { ...gradient, kind: event.target.value } })}>
-                <option value="linear">{s.linear}</option><option value="radial">{s.radial}</option>
-              </Select></label>
-              {stops.map((stop, stopIndex) => <div className="grid grid-cols-2 gap-1" key={stopIndex}>
-                <ColorInput label={s.gradientStop + ' ' + (stopIndex + 1)} value={stop.color}
-                  change={(color) => update(key, index, { gradient: { ...gradient,
-                    stops: stops.map((entry, i) => i === stopIndex ? { ...entry, color } : entry),
-                  } })} />
-                <NumberInput label={s.stopPosition} value={stop.offset} min={0} max={1} step={0.05}
-                  change={(offset) => update(key, index, { gradient: { ...gradient,
-                    stops: stops.map((entry, i) => i === stopIndex ? { ...entry, offset } : entry),
-                  } })} />
-              </div>)}
-              <button disabled={stops.length >= 4} onClick={() => update(key, index, { gradient: {
-                ...gradient, stops: [...stops, { offset: 0.5, color: '#ffffff' }],
-              } })}>{s.gradientStop} +</button>
+              <GradientEditor gradient={gradient} change={(gradient) => update(key, index, { gradient })} />
             </>}
             <NumberInput label={s.layerOpacity} value={fill.opacity ?? 1} min={0} max={1} step={0.05}
               change={(opacity) => update(key, index, { opacity })} />

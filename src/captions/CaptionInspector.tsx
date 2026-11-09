@@ -1,3 +1,4 @@
+import { ColorPicker } from '../design-system/ColorPicker';
 import { Select } from '../design-system/Select';
 import { useState } from 'react';
 import { strings as s } from '../lib/strings';
@@ -75,8 +76,8 @@ export function CaptionInspector({ project, track, segment, edit }: {
           const fontSize = event.target.valueAsNumber;
           if (fontSize >= 1 && fontSize <= 1024) update({ style: { ...(segment ? override?.style : style), fontSize } });
         }} /></label>
-      <label>{s.color}<input type="color" value={style.fill?.color?.match(/^#[\da-f]{6}$/i)?.[0] ?? '#ffffff'}
-        onChange={(event) => update({ style: { ...(segment ? override?.style : style), fill: { type: 'solid', color: event.target.value } } })} /></label>
+      <ColorPicker label={s.color} value={style.fill?.color ?? '#ffffff'}
+        change={(color) => update({ style: { ...(segment ? override?.style : style), fill: { type: 'solid', color } } })} />
       <label>{s.wordEffect}<Select label={s.wordEffect} value={effect?.type ?? 'none'} onChange={(event) =>
         update({ wordEffect: { ...effect, type: wordEffects[event.target.selectedIndex] } })}>
         {wordEffects.map((item) => <option key={item} value={item}>{s.wordEffectNames[item]}</option>)}

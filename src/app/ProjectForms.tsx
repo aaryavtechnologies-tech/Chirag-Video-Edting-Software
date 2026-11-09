@@ -1,3 +1,4 @@
+import { ColorPicker } from '../design-system/ColorPicker';
 import { Select } from '../design-system/Select';
 import { useState } from 'react';
 import { projectDimensions, ratios, resolutions } from '../lib/geometry';
@@ -69,7 +70,7 @@ export function NewProjectForm({ preferences, onCreate, onFolder, busy, initial,
           {frameRates.map((value) => <button type="button" key={value} aria-pressed={fps === value}
             onClick={() => setFps(value)}>{value}</button>)}
         </div></div>
-        <label>{s.background}<input type="color" value={background} onChange={(e) => setBackground(e.target.value)} /></label>
+        <ColorPicker label={s.background} value={background} alpha={false} change={setBackground} />
       </div>
       <p className="muted">{dimensions.width} × {dimensions.height} · {fps} fps</p>
       {!initial && <FolderField label={s.location} folder={folder} onPick={() => onFolder(folder, setFolder)} />}

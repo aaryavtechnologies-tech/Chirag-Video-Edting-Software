@@ -33,6 +33,7 @@ import { LayersPanel } from '../panels/Inspector/LayersPanel';
 import { Shortcuts } from './Shortcuts';
 import { ShapeInspector, VisualTools } from '../panels/VisualTools';
 import { Download, Home as HomeIcon, Redo2, Save, SaveAll, Settings2, Undo2 } from 'lucide-react';
+import { ProjectColors } from '../design-system/ColorPicker';
 import { IconButton } from '../design-system/IconButton';
 import { TitleBar, type TitleAction } from './TitleBar';
 import type { shapeKinds } from '../lib/visual';
@@ -51,6 +52,7 @@ export function App() {
   const [dirty, setDirty] = useState(false);
   const [panelRevision, setPanelRevision] = useState(0);
   const project = current?.project;
+  const projectColors = useMemo(() => [...new Set(JSON.stringify(project ?? {}).match(/#[\da-f]{6}(?:[\da-f]{2})?(?=")/gi) ?? [])].slice(0, 24), [project]);
   const duration = useMemo(() => project ? projectDuration(project) : 0, [project]);
   const playback = usePlayback(duration);
   const audio = useRef(new AudioEngine());
@@ -389,7 +391,7 @@ export function App() {
       { label: s.openLog, action: () => void window.desktop.openLog() },
     ] },
   ];
-  return <EditorTooltips>
+  return <EditorTooltips><ProjectColors.Provider value={projectColors}>
     <div className="window-shell">
     <TitleBar menus={menus} name={current?.project.name} dirty={dirty} rename={(name) => edit((draft) => { draft.name = name; })} />
     {current ? <main className={`editor editor-${resolvedLayout}`}>
@@ -571,7 +573,7 @@ export function App() {
       })} />}
       {message}
     </Modal>}
-  </EditorTooltips>;
+  </ProjectColors.Provider></EditorTooltips>;
 }
 
 function ProjectActionForm({ modal, busy, submit }: {

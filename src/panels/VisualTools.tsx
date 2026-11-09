@@ -1,3 +1,4 @@
+import { ColorPicker } from '../design-system/ColorPicker';
 import { strings as s } from '../lib/strings';
 import { shapeKinds } from '../lib/visual';
 import type { Clip, Project } from '../types/project';
@@ -15,8 +16,8 @@ export function ShapeInspector({ clip, project, edit }: { clip: Clip; project: P
   return <aside className="inspector">
     <h2>{s[shape.kind]}</h2>
     <fieldset disabled={locked}>
-      {(['fill', 'stroke'] as const).map((item) => <label key={item}>{s[item]}<input type="color" value={shape[item]}
-        onChange={(event) => change({ [item]: event.target.value })} /></label>)}
+      {(['fill', 'stroke'] as const).map((item) => <ColorPicker key={item} label={s[item]} value={shape[item]}
+        change={(color) => change({ [item]: color })} />)}
       {(['width', 'height', 'strokeWidth'] as const).map((item) => <label key={item}>{s[item]}
         <input key={shape[item]} type="number" min={item === 'strokeWidth' ? 0 : 1}
           max={item === 'strokeWidth' ? 100 : 4096} defaultValue={shape[item]} onBlur={(event) => {

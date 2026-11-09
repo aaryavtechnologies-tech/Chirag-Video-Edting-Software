@@ -19,6 +19,15 @@ test('creates a 4K60 project and reopens it from Home', async ({}, testInfo) => 
     const page = await app.firstWindow();
     await page.getByRole('button', { name: s.newProject }).click();
     await page.getByLabel(s.name).fill('Sample');
+    const background = page.getByRole('button', { name: s.background, exact: true });
+    await background.click({ timeout: 5000 });
+    await page.getByRole('textbox', { name: s.hexColor }).fill('#172a42', { timeout: 5000 });
+    await page.getByRole('button', { name: s.applyColor }).click({ timeout: 5000 });
+    await expect(background).toHaveText('#172A42');
+    await background.click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: s.newProject })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: s.background })).toHaveCount(0);
     await chooseOption(page, s.resolution, '4K');
     await page.getByRole('group', { name: s.frameRate }).getByRole('button', { name: '60', exact: true }).click();
     await page.getByRole('button', { name: s.create }).click();
@@ -35,7 +44,7 @@ test('creates a 4K60 project and reopens it from Home', async ({}, testInfo) => 
     await expect(page.getByRole('heading', { name: 'Sample' })).toBeVisible();
     const file = join(projects, 'Sample', 'Sample.vedit');
     expect(JSON.parse(await readFile(file, 'utf8')).settings)
-      .toMatchObject({ width: 3840, height: 2160, fps: 60 });
+      .toMatchObject({ width: 3840, height: 2160, fps: 60, background: '#172a42' });
   } finally {
     await app.close();
   }
